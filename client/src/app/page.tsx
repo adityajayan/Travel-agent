@@ -33,12 +33,13 @@ export default function Home() {
 
   const { connected } = useWebSocket(
     activeTrip?.id ?? null,
-    (event: TripEvent) => {
-      setEvents((prev) => [...prev, event]);
+    (event: Record<string, unknown>) => {
+      const tripEvent = event as unknown as TripEvent;
+      setEvents((prev) => [...prev, tripEvent]);
 
-      if (event.type === "trip_completed" || event.type === "trip_failed") {
+      if (tripEvent.type === "trip_completed" || tripEvent.type === "trip_failed") {
         setActiveTrip((prev) =>
-          prev ? { ...prev, status: event.type === "trip_completed" ? "completed" : "failed" } : null
+          prev ? { ...prev, status: tripEvent.type === "trip_completed" ? "completed" : "failed" } : null
         );
         refreshTrips();
       }

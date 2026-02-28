@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = "/api";
 
 /**
  * M6 Item 5 — Push Notifications using Web Push API.
@@ -70,7 +70,7 @@ export function usePushNotifications() {
   return { supported, subscribed, subscribe, unsubscribe };
 }
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): BufferSource {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(base64);
