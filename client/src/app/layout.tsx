@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Travel Agent",
@@ -31,7 +32,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
       </head>
       <body className="bg-gray-50 text-gray-900 min-h-screen">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -56,9 +56,20 @@ def test_app_page_exists():
     assert os.path.isfile(os.path.join(CLIENT_DIR, "src", "app", "page.tsx"))
 
 
+def test_app_providers_exists():
+    assert os.path.isfile(os.path.join(CLIENT_DIR, "src", "app", "providers.tsx"))
+
+
 def test_components_exist():
     components_dir = os.path.join(CLIENT_DIR, "src", "components")
-    expected = ["TripForm.tsx", "TripTimeline.tsx", "TripList.tsx", "VoiceInputButton.tsx"]
+    expected = [
+        "TripForm.tsx",
+        "TripTimeline.tsx",
+        "TripList.tsx",
+        "VoiceInputButton.tsx",
+        "Toast.tsx",
+        "AuthGate.tsx",
+    ]
     for name in expected:
         assert os.path.isfile(os.path.join(components_dir, name)), f"Missing component: {name}"
 
@@ -100,3 +111,83 @@ def test_push_hook_has_push_manager():
         content = f.read()
     assert "PushManager" in content
     assert "subscribe" in content
+
+
+# ── New: Auth, Toast, and API client content tests ─────────────────────────
+
+
+def test_auth_gate_has_login_form():
+    """AuthGate includes a LoginForm and AuthProvider."""
+    auth_path = os.path.join(CLIENT_DIR, "src", "components", "AuthGate.tsx")
+    with open(auth_path) as f:
+        content = f.read()
+    assert "LoginForm" in content
+    assert "AuthProvider" in content
+    assert "localStorage" in content
+
+
+def test_toast_has_provider_and_hook():
+    """Toast component includes ToastProvider and useToast."""
+    toast_path = os.path.join(CLIENT_DIR, "src", "components", "Toast.tsx")
+    with open(toast_path) as f:
+        content = f.read()
+    assert "ToastProvider" in content
+    assert "useToast" in content
+    assert "error" in content
+    assert "success" in content
+
+
+def test_api_client_has_create_trip_options():
+    """API client supports extended trip creation fields."""
+    api_path = os.path.join(CLIENT_DIR, "src", "lib", "api.ts")
+    with open(api_path) as f:
+        content = f.read()
+    assert "CreateTripOptions" in content
+    assert "total_budget" in content
+    assert "org_id" in content
+    assert "policy_id" in content
+    assert "clearToken" in content
+    assert "checkAuth" in content
+
+
+def test_trip_form_has_advanced_options():
+    """TripForm includes budget, org_id, and policy_id fields."""
+    form_path = os.path.join(CLIENT_DIR, "src", "components", "TripForm.tsx")
+    with open(form_path) as f:
+        content = f.read()
+    assert "total_budget" in content
+    assert "org_id" in content
+    assert "policy_id" in content
+    assert "showAdvanced" in content
+
+
+def test_websocket_hook_has_reconnection():
+    """useWebSocket includes retry/reconnection logic."""
+    ws_path = os.path.join(CLIENT_DIR, "src", "hooks", "useWebSocket.ts")
+    with open(ws_path) as f:
+        content = f.read()
+    assert "MAX_RETRIES" in content
+    assert "retriesRef" in content
+    assert "retryTimerRef" in content
+
+
+def test_page_uses_toast_and_auth():
+    """Main page uses useToast and useAuth."""
+    page_path = os.path.join(CLIENT_DIR, "src", "app", "page.tsx")
+    with open(page_path) as f:
+        content = f.read()
+    assert "useToast" in content
+    assert "useAuth" in content
+    assert "usePushNotifications" in content
+    assert "toast(" in content
+
+
+def test_env_example_exists():
+    """A .env.example file exists at the repo root."""
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env.example")
+    assert os.path.isfile(env_path), ".env.example must exist at repo root"
+    with open(env_path) as f:
+        content = f.read()
+    assert "ANTHROPIC_API_KEY" in content
+    assert "AUTH_SECRET" in content
+    assert "VAPID_PUBLIC_KEY" in content
