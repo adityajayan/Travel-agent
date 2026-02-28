@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api.routes import approvals, policies, push, streaming, trips
@@ -6,6 +7,14 @@ from core.config import settings
 from db.database import init_db
 
 app = FastAPI(title="Travel & Logistics Agentic Platform", version="0.6.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # M6: Health check (exempt from auth — INV-12)
 @app.get("/health")
