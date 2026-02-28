@@ -1,5 +1,3 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 class ApiClient {
   private token: string | null = null;
 
@@ -16,7 +14,7 @@ class ApiClient {
   }
 
   async createTrip(goal: string) {
-    const res = await fetch(`${API_URL}/trips`, {
+    const res = await fetch("/api/trips", {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({ goal }),
@@ -26,13 +24,13 @@ class ApiClient {
   }
 
   async getTrips() {
-    const res = await fetch(`${API_URL}/trips`, { headers: this.headers() });
+    const res = await fetch("/api/trips", { headers: this.headers() });
     if (!res.ok) throw new Error(`Get trips failed: ${res.status}`);
     return res.json();
   }
 
   async getTrip(tripId: string) {
-    const res = await fetch(`${API_URL}/trips/${tripId}`, {
+    const res = await fetch(`/api/trips/${tripId}`, {
       headers: this.headers(),
     });
     if (!res.ok) throw new Error(`Get trip failed: ${res.status}`);
@@ -40,7 +38,7 @@ class ApiClient {
   }
 
   async submitApproval(approvalId: string, approved: boolean) {
-    const res = await fetch(`${API_URL}/approvals/${approvalId}`, {
+    const res = await fetch(`/api/approvals/${approvalId}`, {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({ approved }),
