@@ -2,28 +2,26 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
-
 export function useWebSocket(
   tripId: string | null,
   onEvent: (event: Record<string, unknown>) => void
 ) {
   const [connected, setConnected] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
+  const esRef = useRef<EventSource | null>(null);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
   const connect = useCallback(() => {
     if (!tripId) return;
 
-    const ws = new WebSocket(`${WS_URL}/trips/${tripId}/stream`);
-    wsRef.current = ws;
+    const es = new EventSource(`/api/trips/${tripId}/events`);
+    esRef.current = es;
 
-    ws.onopen = () => {
+    es.onopen = () => {
       setConnected(true);
     };
 
-    ws.onmessage = (msg) => {
+    es.onmessage = (msg) => {
       try {
         const data = JSON.parse(msg.data);
         if (data.type === "heartbeat") return;
@@ -33,21 +31,18 @@ export function useWebSocket(
       }
     };
 
-    ws.onclose = () => {
+    es.onerror = () => {
       setConnected(false);
-      wsRef.current = null;
-    };
-
-    ws.onerror = () => {
-      ws.close();
+      es.close();
+      esRef.current = null;
     };
   }, [tripId]);
 
   useEffect(() => {
     connect();
     return () => {
-      wsRef.current?.close();
-      wsRef.current = null;
+      esRef.current?.close();
+      esRef.current = null;
     };
   }, [connect]);
 
