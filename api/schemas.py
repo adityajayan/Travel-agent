@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 class TripCreate(BaseModel):
     goal: str
-    user_id: str = "anonymous"
+    user_id: Optional[str] = None  # M6: set from JWT auth; nullable for migration compat
     total_budget: Optional[float] = None
     org_id: Optional[str] = None
     policy_id: Optional[str] = None  # explicit override; error if inactive (INV-9)
