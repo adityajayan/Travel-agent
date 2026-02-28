@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import TripForm from "@/components/TripForm";
 import TripTimeline from "@/components/TripTimeline";
 import TripList from "@/components/TripList";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { apiClient } from "@/lib/api";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { apiClient, CreateTripOptions } from "@/lib/api";
+import { useAuth, LoginForm } from "@/components/AuthGate";
+import { useToast } from "@/components/Toast";
 
 export interface TripEvent {
   type: string;
@@ -30,6 +33,32 @@ export default function Home() {
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
   const [events, setEvents] = useState<TripEvent[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [authRequired, setAuthRequired] = useState<boolean | null>(null);
+
+  const { isAuthenticated, logout } = useAuth();
+  const { toast } = useToast();
+  const { supported: pushSupported, subscribed: pushSubscribed, subscribe: pushSubscribe } = usePushNotifications();
+
+  // Check whether the backend requires auth
+  useEffect(() => {
+    apiClient.checkAuth().then((ok) => {
+      setAuthRequired(!ok && !isAuthenticated);
+    });
+  }, [isAuthenticated]);
+
+  // Auto-subscribe to push notifications when supported
+  useEffect(() => {
+    if (pushSupported && !pushSubscribed) {
+      fetch("/api/push/vapid-key")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.vapid_public_key) {
+            pushSubscribe(data.vapid_public_key);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [pushSupported, pushSubscribed, pushSubscribe]);
 
   const { connected } = useWebSocket(
     activeTrip?.id ?? null,
@@ -49,27 +78,29 @@ export default function Home() {
     try {
       const data = await apiClient.getTrips();
       setTrips(data);
-    } catch {
-      // Silently handle
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to load trips");
     }
   };
 
-  const handleCreateTrip = async (goal: string) => {
+  const handleCreateTrip = async (options: CreateTripOptions) => {
     try {
-      const trip = await apiClient.createTrip(goal);
+      const trip = await apiClient.createTrip(options);
       setActiveTrip(trip);
       setEvents([]);
+      toast("Trip created — agents are planning your trip", "success");
       refreshTrips();
     } catch (err) {
-      console.error("Failed to create trip:", err);
+      toast(err instanceof Error ? err.message : "Failed to create trip");
     }
   };
 
   const handleApproval = async (approvalId: string, approved: boolean) => {
     try {
       await apiClient.submitApproval(approvalId, approved);
+      toast(approved ? "Booking approved" : "Booking rejected", "info");
     } catch (err) {
-      console.error("Failed to submit approval:", err);
+      toast(err instanceof Error ? err.message : "Failed to submit approval");
     }
   };
 
@@ -78,11 +109,34 @@ export default function Home() {
     setEvents([]);
   };
 
+  // Show login form if backend requires auth and user isn't authenticated
+  if (authRequired && !isAuthenticated) {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-primary-700">Travel Agent</h1>
+          <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
+        </header>
+        <LoginForm />
+      </main>
+    );
+  }
+
   return (
     <main className="max-w-4xl mx-auto px-4 py-8">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-primary-700">Travel Agent</h1>
-        <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
+      <header className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-primary-700">Travel Agent</h1>
+          <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
+        </div>
+        {isAuthenticated && (
+          <button
+            onClick={logout}
+            className="text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Sign Out
+          </button>
+        )}
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

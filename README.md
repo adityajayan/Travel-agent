@@ -7,11 +7,44 @@ corporate travel policies.
 
 ---
 
+## Quick Start (Local Development)
+
+```bash
+# 1. Clone and enter the repo
+git clone <repo-url>
+cd Travel-agent
+
+# 2. Copy environment template and fill in your keys
+cp .env.example .env
+# Edit .env — at minimum set ANTHROPIC_API_KEY for AI planning
+
+# 3. Start the backend
+pip install -r requirements.txt
+USE_REAL_APIS=false python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+
+# 4. Start the frontend (in a second terminal)
+cd client
+npm install
+npm run dev
+```
+
+Open **http://localhost:3000** in your browser. The backend API docs are at
+**http://localhost:8000/docs**.
+
+### Authentication
+
+By default (`AUTH_SECRET` empty), authentication is disabled — the app works
+without any login. To enable JWT authentication, set `AUTH_SECRET` in `.env` and
+paste a valid JWT token in the login form that appears in the frontend.
+
+---
+
 ## Repository Layout
 
 ```
 travel-agent/            ← repo root
 ├── README.md            ← you are here
+├── .env.example         ← environment variable template
 ├── agents/
 │   ├── base_agent.py       ← policy pre-check (INV-7) + tool dispatch
 │   ├── orchestrator_agent.py ← M4: parallel sub-task execution via asyncio.gather
@@ -47,11 +80,12 @@ travel-agent/            ← repo root
 │   └── real/               ← M5: Amadeus, Booking.com, RailEurope, Hertz, Viator
 ├── tools/
 ├── tests/
-├── client/                 ← M6: PWA client (React 18 + Next.js 14 + Tailwind CSS)
-│   ├── src/app/            ← Next.js App Router pages + layout
-│   ├── src/components/     ← TripForm, TripTimeline, TripList, VoiceInputButton
-│   ├── src/hooks/          ← useWebSocket, usePushNotifications
-│   ├── src/lib/            ← API client
+├── client/                 ← M6/M7: PWA client (React 18 + Next.js 14 + Tailwind CSS)
+│   ├── src/app/            ← Next.js App Router pages + layout + providers
+│   ├── src/components/     ← TripForm, TripTimeline, TripList, VoiceInputButton,
+│   │                         Toast, AuthGate
+│   ├── src/hooks/          ← useWebSocket (with reconnection), usePushNotifications
+│   ├── src/lib/            ← API client (extended trip fields, auth, error parsing)
 │   └── public/             ← manifest.json, service worker, PWA icons
 ├── requirements.txt
 └── pytest.ini
@@ -125,12 +159,13 @@ for human review.
 
 | Milestone | Status       | Description                                                       |
 |-----------|--------------|-------------------------------------------------------------------|
-| M1        | ✅ Complete  | FlightAgent, HotelAgent, ApprovalGate, AuditLogger, API           |
-| M2        | ✅ Complete  | OrchestratorAgent, TransportAgent, ActivityAgent, providers layer |
-| M3        | ✅ Complete  | Corporate Policy Engine, 9 rule keys, CRUD API, E2E tests         |
-| M4        | ✅ Complete  | Platform Quality: ExtractedParams, parallel execution, integration tests |
-| M5        | ✅ Complete  | Real API Providers: Amadeus, Booking.com, RailEurope, Hertz, Viator |
-| M6        | ✅ Complete  | Client UX: Auth, WebSocket/SSE streaming, PWA, voice input, push notifications |
+| M1        | Complete | FlightAgent, HotelAgent, ApprovalGate, AuditLogger, API           |
+| M2        | Complete | OrchestratorAgent, TransportAgent, ActivityAgent, providers layer |
+| M3        | Complete | Corporate Policy Engine, 9 rule keys, CRUD API, E2E tests         |
+| M4        | Complete | Platform Quality: ExtractedParams, parallel execution, integration tests |
+| M5        | Complete | Real API Providers: Amadeus, Booking.com, RailEurope, Hertz, Viator |
+| M6        | Complete | Client UX: Auth, WebSocket/SSE streaming, PWA, voice input, push notifications |
+| M7        | Complete | Local UI testing: Auth flow, error toasts, extended trip form, SSE reconnection |
 
 ---
 
@@ -139,7 +174,7 @@ for human review.
 ### Trips
 | Method | Path                          | Description                                 |
 |--------|-------------------------------|---------------------------------------------|
-| POST   | `/trips`                      | Create trip (accepts `org_id`, `policy_id`) |
+| POST   | `/trips`                      | Create trip (accepts `goal`, `total_budget`, `org_id`, `policy_id`) |
 | GET    | `/trips/{id}`                 | Get trip status                             |
 | GET    | `/trips`                      | List all trips                              |
 | GET    | `/trips/{id}/policy-report`   | Audit report: all policy violations         |
@@ -205,16 +240,21 @@ booking = await provider.book(details, payment_token)
 
 ---
 
-## PWA Client (M6)
+## PWA Client (M6/M7)
 
 The `client/` directory contains a Next.js 14 PWA with:
 
-- **TripForm** — natural language trip input with voice-to-text button
+- **TripForm** — natural language trip input with voice-to-text button and
+  advanced options (budget, org ID, policy ID)
 - **TripTimeline** — real-time event stream showing agent progress, approvals, and results
 - **TripList** — sidebar listing all trips with status badges
 - **VoiceInputButton** — Web Speech API for voice-to-text input
-- **WebSocket streaming** — connects to `/trips/{id}/stream` for live updates
-- **Push notifications** — Web Push API with VAPID key subscription
+- **Toast** — toast notification system for user-facing success/error/info messages
+- **AuthGate** — JWT login form and auth context (auto-skipped when auth is disabled)
+- **SSE streaming** — connects to `/trips/{id}/events` with automatic reconnection
+  (exponential backoff, up to 5 retries)
+- **Push notifications** — Web Push API with VAPID key subscription (auto-subscribes
+  when the browser supports it)
 
 ```bash
 cd client
@@ -222,7 +262,8 @@ npm install
 npm run dev     # http://localhost:3000
 ```
 
-Set `NEXT_PUBLIC_API_URL` to point to the backend (defaults to `http://localhost:8000`).
+Set `BACKEND_URL` to point to the backend (defaults to `http://localhost:8000`).
+The Next.js config rewrites `/api/*` requests to the backend automatically.
 
 ---
 
@@ -233,38 +274,36 @@ pip install -r requirements.txt
 pytest tests/ -v
 ```
 
-Expected: **177 tests, all passing** (3 skipped — real API provider tests requiring live credentials).
+Frontend tests:
+
+```bash
+cd client
+npm test
+```
 
 ### Environment variables
 
+Copy `.env.example` to `.env` and fill in the values you need:
+
 ```
-# Core
-ANTHROPIC_API_KEY=           # required for real API; set to any value for tests
-DATABASE_URL=                # defaults to sqlite+aiosqlite:///./travel_agent.db
-USE_REAL_APIS=false          # mock mode (default)
-APPROVAL_TIMEOUT_MINUTES=30
-MAX_AGENT_ITERATIONS=10
-LOG_LEVEL=INFO
-
-# M5 — Real API Providers (required when USE_REAL_APIS=true)
-AMADEUS_CLIENT_ID=
-AMADEUS_CLIENT_SECRET=
-AMADEUS_HOSTNAME=test.api.amadeus.com   # use api.amadeus.com for production
-BOOKINGCOM_API_KEY=
-RAILEUROPE_API_KEY=
-HERTZ_CLIENT_ID=
-HERTZ_CLIENT_SECRET=
-VIATOR_API_KEY=
-
-# M6 — Authentication
-AUTH_SECRET=                 # JWT signing secret; leave empty to disable auth (dev/test)
-AUTH_PROVIDER_URL=           # external auth provider URL (optional)
-
-# M6 — Push Notifications
-VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
-VAPID_CONTACT_EMAIL=
+cp .env.example .env
 ```
+
+| Variable                | Required | Description                                          |
+|-------------------------|----------|------------------------------------------------------|
+| `ANTHROPIC_API_KEY`     | Yes      | Required for AI agent planning                       |
+| `DATABASE_URL`          | No       | Defaults to `sqlite+aiosqlite:///./travel_agent.db`  |
+| `USE_REAL_APIS`         | No       | `false` (default) uses mock providers                |
+| `AUTH_SECRET`           | No       | JWT signing secret; leave empty to disable auth      |
+| `VAPID_PUBLIC_KEY`      | No       | Required for push notifications                      |
+| `VAPID_PRIVATE_KEY`     | No       | Required for push notifications                      |
+| `AMADEUS_CLIENT_ID`     | No       | Required when `USE_REAL_APIS=true`                   |
+| `AMADEUS_CLIENT_SECRET` | No       | Required when `USE_REAL_APIS=true`                   |
+| `BOOKINGCOM_API_KEY`    | No       | Required when `USE_REAL_APIS=true`                   |
+| `RAILEUROPE_API_KEY`    | No       | Required when `USE_REAL_APIS=true`                   |
+| `HERTZ_CLIENT_ID`       | No       | Required when `USE_REAL_APIS=true`                   |
+| `HERTZ_CLIENT_SECRET`   | No       | Required when `USE_REAL_APIS=true`                   |
+| `VIATOR_API_KEY`        | No       | Required when `USE_REAL_APIS=true`                   |
 
 ---
 

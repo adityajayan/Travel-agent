@@ -1,8 +1,19 @@
+export interface CreateTripOptions {
+  goal: string;
+  total_budget?: number;
+  org_id?: string;
+  policy_id?: string;
+}
+
 class ApiClient {
   private token: string | null = null;
 
   setToken(token: string) {
     this.token = token;
+  }
+
+  clearToken() {
+    this.token = null;
   }
 
   private headers(): Record<string, string> {
@@ -13,19 +24,25 @@ class ApiClient {
     return h;
   }
 
-  async createTrip(goal: string) {
+  async createTrip(options: CreateTripOptions) {
     const res = await fetch("/api/trips", {
       method: "POST",
       headers: this.headers(),
-      body: JSON.stringify({ goal }),
+      body: JSON.stringify(options),
     });
-    if (!res.ok) throw new Error(`Create trip failed: ${res.status}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Create trip failed: ${res.status}`);
+    }
     return res.json();
   }
 
   async getTrips() {
     const res = await fetch("/api/trips", { headers: this.headers() });
-    if (!res.ok) throw new Error(`Get trips failed: ${res.status}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Get trips failed: ${res.status}`);
+    }
     return res.json();
   }
 
@@ -33,7 +50,10 @@ class ApiClient {
     const res = await fetch(`/api/trips/${tripId}`, {
       headers: this.headers(),
     });
-    if (!res.ok) throw new Error(`Get trip failed: ${res.status}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Get trip failed: ${res.status}`);
+    }
     return res.json();
   }
 
@@ -43,8 +63,20 @@ class ApiClient {
       headers: this.headers(),
       body: JSON.stringify({ approved }),
     });
-    if (!res.ok) throw new Error(`Approval failed: ${res.status}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Approval failed: ${res.status}`);
+    }
     return res.json();
+  }
+
+  async checkAuth(): Promise<boolean> {
+    try {
+      const res = await fetch("/api/trips", { headers: this.headers() });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 }
 

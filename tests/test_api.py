@@ -149,3 +149,43 @@ async def test_list_approvals_by_trip(api_client, engine):
     approvals = resp.json()
     assert len(approvals) == 1
     assert approvals[0]["trip_id"] == trip_id
+
+
+# ── Extended trip creation fields ─────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_trip_with_budget(api_client):
+    """Trip creation accepts total_budget field."""
+    with patch("api.routes.trips._run_agent_task", new=AsyncMock()):
+        resp = await api_client.post("/trips", json={
+            "goal": "3-day trip to London",
+            "total_budget": 2500.0,
+        })
+    assert resp.status_code == 202
+    data = resp.json()
+    assert data["total_budget"] == 2500.0
+
+
+@pytest.mark.asyncio
+async def test_create_trip_with_org_and_policy(api_client):
+    """Trip creation accepts org_id and policy_id fields."""
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+    from db.models import CorporatePolicy
+
+    with patch("api.routes.trips._run_agent_task", new=AsyncMock()):
+        resp = await api_client.post("/trips", json={
+            "goal": "Conference in Berlin",
+            "org_id": "acme-corp",
+        })
+    assert resp.status_code == 202
+    data = resp.json()
+    assert data["org_id"] == "acme-corp"
+
+
+@pytest.mark.asyncio
+async def test_health_check(api_client):
+    """Health endpoint responds with ok status."""
+    resp = await api_client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
