@@ -9,6 +9,21 @@ class Base(DeclarativeBase):
     pass
 
 
+# ── M6: User model ──────────────────────────────────────────────────────────
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    auth_provider_id = Column(String, nullable=False)  # external ID from Supabase/Auth0
+    preferences_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    trips = relationship("Trip", back_populates="user", lazy="select")
+
+
 class Trip(Base):
     __tablename__ = "trips"
 
@@ -17,14 +32,15 @@ class Trip(Base):
     # pending | running | awaiting_approval | complete | failed
     status = Column(String, default="pending", nullable=False)
     total_spent = Column(Float, default=0.0, nullable=False)
-    # M3 additions
-    user_id = Column(String, default="anonymous", nullable=True)
+    # M3/M6 additions
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
     total_budget = Column(Float, nullable=True)
     org_id = Column(String, nullable=True)
     policy_id = Column(String, ForeignKey("corporate_policies.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    user = relationship("User", back_populates="trips", lazy="select")
     bookings = relationship("Booking", back_populates="trip", lazy="select")
     tool_calls = relationship("ToolCall", back_populates="trip", lazy="select")
     approvals = relationship("HumanApproval", back_populates="trip", lazy="select")

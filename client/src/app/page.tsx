@@ -1,0 +1,136 @@
+"use client";
+
+import { useState } from "react";
+import TripForm from "@/components/TripForm";
+import TripTimeline from "@/components/TripTimeline";
+import TripList from "@/components/TripList";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import { apiClient } from "@/lib/api";
+
+export interface TripEvent {
+  type: string;
+  message?: string;
+  agent_type?: string;
+  tool_name?: string;
+  status?: string;
+  summary?: Record<string, unknown>;
+  approval_id?: string;
+  context?: Record<string, unknown>;
+}
+
+export interface Trip {
+  id: string;
+  goal: string;
+  status: string;
+  created_at?: string;
+  result?: Record<string, unknown>;
+}
+
+export default function Home() {
+  const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
+  const [events, setEvents] = useState<TripEvent[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
+
+  const { connected } = useWebSocket(
+    activeTrip?.id ?? null,
+    (event: TripEvent) => {
+      setEvents((prev) => [...prev, event]);
+
+      if (event.type === "trip_completed" || event.type === "trip_failed") {
+        setActiveTrip((prev) =>
+          prev ? { ...prev, status: event.type === "trip_completed" ? "completed" : "failed" } : null
+        );
+        refreshTrips();
+      }
+    }
+  );
+
+  const refreshTrips = async () => {
+    try {
+      const data = await apiClient.getTrips();
+      setTrips(data);
+    } catch {
+      // Silently handle
+    }
+  };
+
+  const handleCreateTrip = async (goal: string) => {
+    try {
+      const trip = await apiClient.createTrip(goal);
+      setActiveTrip(trip);
+      setEvents([]);
+      refreshTrips();
+    } catch (err) {
+      console.error("Failed to create trip:", err);
+    }
+  };
+
+  const handleApproval = async (approvalId: string, approved: boolean) => {
+    try {
+      await apiClient.submitApproval(approvalId, approved);
+    } catch (err) {
+      console.error("Failed to submit approval:", err);
+    }
+  };
+
+  const handleSelectTrip = (trip: Trip) => {
+    setActiveTrip(trip);
+    setEvents([]);
+  };
+
+  return (
+    <main className="max-w-4xl mx-auto px-4 py-8">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-primary-700">Travel Agent</h1>
+        <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left panel — trip list */}
+        <div className="lg:col-span-1">
+          <TripList
+            trips={trips}
+            activeTrip={activeTrip}
+            onSelect={handleSelectTrip}
+            onRefresh={refreshTrips}
+          />
+        </div>
+
+        {/* Right panel — form + timeline */}
+        <div className="lg:col-span-2 space-y-6">
+          <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
+
+          {activeTrip && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">{activeTrip.goal}</h2>
+                <StatusBadge status={activeTrip.status} connected={connected} />
+              </div>
+              <TripTimeline events={events} onApproval={handleApproval} />
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function StatusBadge({ status, connected }: { status: string; connected: boolean }) {
+  const colors: Record<string, string> = {
+    pending: "bg-yellow-100 text-yellow-700",
+    running: "bg-blue-100 text-blue-700",
+    completed: "bg-green-100 text-green-700",
+    failed: "bg-red-100 text-red-700",
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      {connected && status === "running" && (
+        <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse-dot" />
+      )}
+      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] ?? "bg-gray-100 text-gray-600"}`}>
+        {status}
+      </span>
+    </div>
+  );
+}
