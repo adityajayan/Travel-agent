@@ -14,6 +14,7 @@ from agents.transport_agent import TransportAgent
 from api.schemas import PolicyReportResponse, PolicyViolationRowOut, TripCreate, TripRead
 from core.approval_gate import ApprovalGate
 from core.audit_logger import AuditLogger
+from core.event_bus import EventBus
 from core.policy_engine import PolicyEngine, PolicyNotFoundError
 from db.database import get_db
 from db.models import CorporatePolicy, PolicyViolation, Trip
@@ -81,6 +82,8 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
             logger.error("Policy resolution failed for trip %s: %s", trip_id, exc)
             trip.status = "failed"
             await db.commit()
+            bus = EventBus.get_or_create(trip_id)
+            await bus.emit({"type": "trip_failed", "message": str(exc)})
             return
 
         # ── Agent selection and run ─────────────────────────────────────────────────
@@ -103,11 +106,16 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
             trip.status = "complete"
             await db.commit()
 
+        bus = EventBus.get_or_create(trip_id)
+        await bus.emit({"type": "trip_completed", "summary": {"status": "complete"}})
+
     except Exception as exc:
         logger.error("Agent task failed for trip %s: %s", trip_id, exc)
         await db.refresh(trip)
         trip.status = "failed"
         await db.commit()
+        bus = EventBus.get_or_create(trip_id)
+        await bus.emit({"type": "trip_failed", "message": str(exc)})
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
