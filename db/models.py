@@ -37,6 +37,7 @@ class Trip(Base):
     total_budget = Column(Float, nullable=True)
     org_id = Column(String, nullable=True)
     policy_id = Column(String, ForeignKey("corporate_policies.id"), nullable=True)
+    summary_text = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

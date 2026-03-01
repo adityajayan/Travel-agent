@@ -37,12 +37,13 @@ async def test_parallel_happy_path_3_sub_agents(db, trip, audit_logger, approval
         "optional": ["hotel", "transport", "activity"],
     }
     decompose_resp = _text_response(json.dumps(plan))
+    no_questions_resp = _text_response("[]")
     synth_resp = _text_response("All booked!")
 
     mock_client = MagicMock()
     mock_client.messages = MagicMock()
     mock_client.messages.create = AsyncMock(
-        side_effect=[decompose_resp, synth_resp]
+        side_effect=[decompose_resp, no_questions_resp, synth_resp]
     )
 
     async def mock_run_sub(domain, sub_goal):
@@ -86,10 +87,12 @@ async def test_optional_task_fails_others_complete(db, trip, audit_logger, appro
             raise RuntimeError("Activity provider down")
         return "Done."
 
+    no_questions_resp = _text_response("[]")
+
     mock_client = MagicMock()
     mock_client.messages = MagicMock()
     mock_client.messages.create = AsyncMock(
-        side_effect=[decompose_resp, sub_resp_ok, synth_resp]
+        side_effect=[decompose_resp, no_questions_resp, sub_resp_ok, synth_resp]
     )
 
     agent = OrchestratorAgent(trip.id, db, audit_logger, approval_gate)
@@ -128,10 +131,12 @@ async def test_required_task_fails_trip_marked_failed(db, trip, audit_logger, ap
             raise RuntimeError("Flight booking failed")
         return "Done."
 
+    no_questions_resp = _text_response("[]")
+
     mock_client = MagicMock()
     mock_client.messages = MagicMock()
     mock_client.messages.create = AsyncMock(
-        side_effect=[decompose_resp]
+        side_effect=[decompose_resp, no_questions_resp]
     )
 
     agent = OrchestratorAgent(trip.id, db, audit_logger, approval_gate)
@@ -175,10 +180,12 @@ async def test_sequential_dependency_flight_before_hotel(db, trip, audit_logger,
         execution_order.append(("end", domain))
         return "Done."
 
+    no_questions_resp = _text_response("[]")
+
     mock_client = MagicMock()
     mock_client.messages = MagicMock()
     mock_client.messages.create = AsyncMock(
-        side_effect=[decompose_resp, synth_resp]
+        side_effect=[decompose_resp, no_questions_resp, synth_resp]
     )
 
     agent = OrchestratorAgent(trip.id, db, audit_logger, approval_gate)
@@ -250,10 +257,12 @@ async def test_parallel_optional_failure_doesnt_cancel_siblings(db, trip, audit_
         completed_domains.append(domain)
         return "Done."
 
+    no_questions_resp = _text_response("[]")
+
     mock_client = MagicMock()
     mock_client.messages = MagicMock()
     mock_client.messages.create = AsyncMock(
-        side_effect=[decompose_resp, synth_resp]
+        side_effect=[decompose_resp, no_questions_resp, synth_resp]
     )
 
     agent = OrchestratorAgent(trip.id, db, audit_logger, approval_gate)

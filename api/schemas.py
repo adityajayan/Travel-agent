@@ -14,6 +14,20 @@ class TripCreate(BaseModel):
     policy_id: Optional[str] = None  # explicit override; error if inactive (INV-9)
 
 
+class ClarificationResponse(BaseModel):
+    request_id: str
+    answers: Dict[str, str]
+
+
+class BookingOut(BaseModel):
+    domain: str
+    provider: str
+    details: Dict[str, Any]
+    amount: float
+
+    model_config = {"from_attributes": True}
+
+
 class TripRead(BaseModel):
     id: str
     goal: str
@@ -24,6 +38,8 @@ class TripRead(BaseModel):
     org_id: Optional[str] = None
     policy_id: Optional[str] = None
     created_at: Optional[datetime] = None
+    summary_text: Optional[str] = None
+    bookings: List[BookingOut] = []
 
     model_config = {"from_attributes": True}
 

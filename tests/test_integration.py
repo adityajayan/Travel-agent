@@ -224,9 +224,10 @@ async def test_multi_agent_flight_hotel(int_client, session_factory):
                 "optional": [],
             }
             plan_resp = _text_response(json.dumps(plan))
+            no_questions_resp = _text_response("[]")
             synth_resp = _text_response("Chicago trip booked!")
             mock_orch_ant.return_value.messages.create = AsyncMock(
-                side_effect=[plan_resp, synth_resp]
+                side_effect=[plan_resp, no_questions_resp, synth_resp]
             )
 
             # Pre-create approvals so booking succeeds
