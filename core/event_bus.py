@@ -14,6 +14,8 @@ class EventBus:
     """Per-trip event queue for real-time streaming."""
 
     _buses: Dict[str, "EventBus"] = {}
+    # Per-trip response queues for clarification answers from the user
+    _response_queues: Dict[str, asyncio.Queue] = {}
 
     def __init__(self, trip_id: str):
         self.trip_id = trip_id
@@ -55,5 +57,29 @@ class EventBus:
         """Consume next event. Returns None on timeout."""
         try:
             return await asyncio.wait_for(self._queue.get(), timeout=timeout)
+        except asyncio.TimeoutError:
+            return None
+
+    @classmethod
+    def get_response_queue(cls, trip_id: str) -> asyncio.Queue:
+        """Get or create a response queue for receiving clarification answers."""
+        if trip_id not in cls._response_queues:
+            cls._response_queues[trip_id] = asyncio.Queue()
+        return cls._response_queues[trip_id]
+
+    @classmethod
+    def remove_response_queue(cls, trip_id: str) -> None:
+        cls._response_queues.pop(trip_id, None)
+
+    async def send_response(self, response: Dict[str, Any]) -> None:
+        """Push a user response (e.g. clarification answers) into the response queue."""
+        queue = self.get_response_queue(self.trip_id)
+        await queue.put(response)
+
+    async def wait_for_response(self, timeout: float = 300.0) -> Optional[Dict[str, Any]]:
+        """Wait for a user response. Returns None on timeout (5 min default)."""
+        queue = self.get_response_queue(self.trip_id)
+        try:
+            return await asyncio.wait_for(queue.get(), timeout=timeout)
         except asyncio.TimeoutError:
             return None

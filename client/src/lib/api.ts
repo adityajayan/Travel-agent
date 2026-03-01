@@ -70,6 +70,19 @@ class ApiClient {
     return res.json();
   }
 
+  async submitClarification(tripId: string, requestId: string, answers: Record<string, string>) {
+    const res = await fetch(`/api/trips/${tripId}/clarify`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ request_id: requestId, answers }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Clarification failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
   async checkAuth(): Promise<boolean> {
     try {
       const res = await fetch("/api/trips", { headers: this.headers() });

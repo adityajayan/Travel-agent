@@ -234,7 +234,7 @@ async def test_background_task_runs_normally_without_policy(api_client, engine):
     with patch("api.routes.trips.FlightAgent") as MockFlightAgent:
         mock_instance = AsyncMock()
         MockFlightAgent.return_value = mock_instance
-        mock_instance.run = AsyncMock()
+        mock_instance.run = AsyncMock(return_value="Flight booked successfully.")
 
         async with factory() as session:
             await _run_agent_task(trip_id, "Book a flight", session)

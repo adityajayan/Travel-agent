@@ -11,13 +11,13 @@ from agents.flight_agent import FlightAgent
 from agents.hotel_agent import HotelAgent
 from agents.orchestrator_agent import OrchestratorAgent, _detect_domains
 from agents.transport_agent import TransportAgent
-from api.schemas import PolicyReportResponse, PolicyViolationRowOut, TripCreate, TripRead
+from api.schemas import BookingOut, ClarificationResponse, PolicyReportResponse, PolicyViolationRowOut, TripCreate, TripRead
 from core.approval_gate import ApprovalGate
 from core.audit_logger import AuditLogger
 from core.event_bus import EventBus
 from core.policy_engine import PolicyEngine, PolicyNotFoundError
 from db.database import get_db
-from db.models import CorporatePolicy, PolicyViolation, Trip
+from db.models import Booking, CorporatePolicy, PolicyViolation, Trip
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 logger = logging.getLogger(__name__)
@@ -99,15 +99,39 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
         else:
             agent = FlightAgent(trip_id, db, audit_logger, approval_gate, policy_engine=policy_engine)
 
-        await agent.run(goal)
+        narrative = await agent.run(goal)
 
         await db.refresh(trip)
         if trip.status == "running":
             trip.status = "complete"
+            trip.summary_text = narrative
             await db.commit()
 
+        # Fetch bookings to include in completion event
+        booking_result = await db.execute(
+            select(Booking).where(Booking.trip_id == trip_id)
+        )
+        bookings = booking_result.scalars().all()
+        bookings_data = [
+            {
+                "domain": b.domain,
+                "provider": b.provider,
+                "details": b.details,
+                "amount": b.amount,
+            }
+            for b in bookings
+        ]
+
         bus = EventBus.get_or_create(trip_id)
-        await bus.emit({"type": "trip_completed", "summary": {"status": "complete"}})
+        await bus.emit({
+            "type": "trip_completed",
+            "summary": {
+                "status": "complete",
+                "narrative": narrative,
+                "bookings": bookings_data,
+                "total_spent": trip.total_spent,
+            },
+        })
 
     except Exception as exc:
         logger.error("Agent task failed for trip %s: %s", trip_id, exc)
@@ -140,7 +164,19 @@ async def create_trip(
     await db.refresh(trip)
 
     background_tasks.add_task(_run_agent_task, trip.id, body.goal, db)
-    return trip
+    return TripRead(
+        id=trip.id,
+        goal=trip.goal,
+        status=trip.status,
+        total_spent=trip.total_spent,
+        user_id=trip.user_id,
+        total_budget=trip.total_budget,
+        org_id=trip.org_id,
+        policy_id=trip.policy_id,
+        created_at=trip.created_at,
+        summary_text=trip.summary_text,
+        bookings=[],
+    )
 
 
 @router.get("/{trip_id}", response_model=TripRead)
@@ -149,13 +185,67 @@ async def get_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
     trip = result.scalar_one_or_none()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
-    return trip
+
+    booking_result = await db.execute(
+        select(Booking).where(Booking.trip_id == trip_id)
+    )
+    bookings = booking_result.scalars().all()
+
+    return TripRead(
+        id=trip.id,
+        goal=trip.goal,
+        status=trip.status,
+        total_spent=trip.total_spent,
+        user_id=trip.user_id,
+        total_budget=trip.total_budget,
+        org_id=trip.org_id,
+        policy_id=trip.policy_id,
+        created_at=trip.created_at,
+        summary_text=trip.summary_text,
+        bookings=[BookingOut.model_validate(b) for b in bookings],
+    )
 
 
 @router.get("", response_model=list[TripRead])
 async def list_trips(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Trip))
-    return result.scalars().all()
+    trips = result.scalars().all()
+    return [
+        TripRead(
+            id=t.id,
+            goal=t.goal,
+            status=t.status,
+            total_spent=t.total_spent,
+            user_id=t.user_id,
+            total_budget=t.total_budget,
+            org_id=t.org_id,
+            policy_id=t.policy_id,
+            created_at=t.created_at,
+            summary_text=t.summary_text,
+            bookings=[],
+        )
+        for t in trips
+    ]
+
+
+@router.post("/{trip_id}/clarify")
+async def submit_clarification(
+    trip_id: str,
+    body: ClarificationResponse,
+    db: AsyncSession = Depends(get_db),
+):
+    """Receive user answers to clarifying questions and forward to the waiting agent."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    bus = EventBus.get_or_create(trip_id)
+    await bus.send_response({
+        "request_id": body.request_id,
+        "answers": body.answers,
+    })
+    return {"status": "ok"}
 
 
 @router.get("/{trip_id}/policy-report", response_model=PolicyReportResponse)

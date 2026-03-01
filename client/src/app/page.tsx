@@ -19,6 +19,8 @@ export interface TripEvent {
   summary?: Record<string, unknown>;
   approval_id?: string;
   context?: Record<string, unknown>;
+  questions?: Array<{ key: string; question: string; placeholder?: string }>;
+  request_id?: string;
 }
 
 export interface Trip {
@@ -105,6 +107,14 @@ export default function Home() {
     }
   };
 
+  const handleClarification = async (tripId: string, requestId: string, answers: Record<string, string>) => {
+    try {
+      await apiClient.submitClarification(tripId, requestId, answers);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to submit preferences");
+    }
+  };
+
   const handleSelectTrip = (trip: Trip) => {
     setActiveTrip(trip);
     setEvents([]);
@@ -161,7 +171,12 @@ export default function Home() {
                 <h2 className="text-lg font-semibold">{activeTrip.goal}</h2>
                 <StatusBadge status={activeTrip.status} connected={connected} />
               </div>
-              <TripTimeline events={events} onApproval={handleApproval} />
+              <TripTimeline
+                events={events}
+                onApproval={handleApproval}
+                onClarification={handleClarification}
+                tripId={activeTrip.id}
+              />
             </div>
           )}
         </div>
