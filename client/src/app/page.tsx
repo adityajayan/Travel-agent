@@ -62,7 +62,7 @@ export default function Home() {
 
   const { connected } = useWebSocket(
     activeTrip?.id ?? null,
-    (event: Record<string, unknown>) => {
+    (event) => {
       const tripEvent = event as unknown as TripEvent;
       setEvents((prev) => [...prev, tripEvent]);
 

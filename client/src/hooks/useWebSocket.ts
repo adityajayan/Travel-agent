@@ -2,12 +2,17 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 
+export interface WebSocketEvent {
+  type: string;
+  [key: string]: unknown;
+}
+
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
 
 export function useWebSocket(
   tripId: string | null,
-  onEvent: (event: Record<string, unknown>) => void
+  onEvent: (event: WebSocketEvent) => void
 ) {
   const [connected, setConnected] = useState(false);
   const esRef = useRef<EventSource | null>(null);
