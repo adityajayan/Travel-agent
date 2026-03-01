@@ -7,6 +7,12 @@ from core.audit_logger import AuditLogger
 from agents.base_agent import BaseAgent
 from providers.base import BaseFlightProvider
 from providers.mock.flight_provider import MockFlightProvider
+from tools.planning_tools import (
+    SUGGEST_ALTERNATIVE_DATES_DEF,
+    SUGGEST_TRIP_OPTIONS_DEF,
+    suggest_alternative_dates,
+    suggest_trip_options,
+)
 from tools.registry import ToolRegistry
 
 SEARCH_FLIGHTS_DEF = {
@@ -66,6 +72,8 @@ class FlightAgent(BaseAgent):
         registry.register(SEARCH_FLIGHTS_DEF, self._search_flights)
         registry.register(BOOK_FLIGHT_DEF, self._book_flight)
         registry.register(CANCEL_FLIGHT_DEF, self._cancel_flight)
+        registry.register(SUGGEST_TRIP_OPTIONS_DEF, suggest_trip_options)
+        registry.register(SUGGEST_ALTERNATIVE_DATES_DEF, suggest_alternative_dates)
         super().__init__("FlightAgent", trip_id, db, registry, audit_logger, approval_gate, policy_engine)
 
     # --- tool handlers ---

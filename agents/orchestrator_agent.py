@@ -16,6 +16,7 @@ from core.approval_gate import ApprovalGate
 from core.audit_logger import AuditLogger
 from core.config import settings
 from core.event_bus import EventBus
+from core.param_tracking import TrackedParams
 from core.state import ExtractedParams
 from db.models import Trip
 from sqlalchemy import select
@@ -90,18 +91,21 @@ class OrchestratorAgent:
         audit_logger: AuditLogger,
         approval_gate: ApprovalGate,
         session_factory: Optional[Callable] = None,
+        tracked_params: Optional[TrackedParams] = None,
     ):
         self.trip_id = trip_id
         self.db = db
         self.audit_logger = audit_logger
         self.approval_gate = approval_gate
         self.session_factory = session_factory
+        self._tracked_params = tracked_params
         self._client = AsyncAnthropic(api_key=settings.anthropic_api_key)
         self._state: Optional[TripState] = None
 
     async def run(self, goal: str) -> str:
         """Main entry point. Returns a narrative trip summary."""
-        state = TripState(trip_id=self.trip_id, original_goal=goal)
+        state = TripState(trip_id=self.trip_id, original_goal=goal,
+                          tracked_params=self._tracked_params)
         self._state = state
 
         try:

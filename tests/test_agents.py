@@ -47,7 +47,10 @@ def _make_tool_use_response(tool_name: str, tool_input: dict, tool_use_id: str =
 async def test_flight_agent_has_only_flight_tools(db, trip, audit_logger, approval_gate):
     agent = FlightAgent(trip.id, db, audit_logger, approval_gate)
     tool_names = agent.tool_registry.tool_names()
-    assert set(tool_names) == {"search_flights", "book_flight", "cancel_flight"}
+    assert {"search_flights", "book_flight", "cancel_flight"}.issubset(set(tool_names))
+    # Planning tools are allowed (read-only)
+    assert "suggest_trip_options" in tool_names
+    assert "suggest_alternative_dates" in tool_names
     # Must NOT have hotel / transport / activity tools
     assert "search_hotels" not in tool_names
     assert "search_transport" not in tool_names
@@ -132,7 +135,10 @@ async def test_flight_agent_pending_approval_logged(db, trip, audit_logger, appr
 async def test_hotel_agent_has_only_hotel_tools(db, trip, audit_logger, approval_gate):
     agent = HotelAgent(trip.id, db, audit_logger, approval_gate)
     tool_names = agent.tool_registry.tool_names()
-    assert set(tool_names) == {"search_hotels", "book_hotel", "cancel_hotel"}
+    assert {"search_hotels", "book_hotel", "cancel_hotel"}.issubset(set(tool_names))
+    # Planning tools are allowed (read-only)
+    assert "suggest_trip_options" in tool_names
+    assert "suggest_alternative_dates" in tool_names
     assert "search_flights" not in tool_names
 
 
