@@ -2,6 +2,9 @@
 
 import { useState, useRef, useCallback } from "react";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type SpeechRecognitionInstance = any;
+
 interface VoiceInputButtonProps {
   onResult: (transcript: string) => void;
   disabled?: boolean;
@@ -13,8 +16,7 @@ interface VoiceInputButtonProps {
  */
 export default function VoiceInputButton({ onResult, disabled }: VoiceInputButtonProps) {
   const [listening, setListening] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance>(null);
 
   const isSupported = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
@@ -25,17 +27,16 @@ export default function VoiceInputButton({ onResult, disabled }: VoiceInputButto
       return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognition = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+    const SpeechRecognitionCtor =
+      (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
 
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognitionCtor) return;
 
-    const recognition = new SpeechRecognition();
+    const recognition = new SpeechRecognitionCtor();
     recognition.lang = "en-US";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
       onResult(transcript);
