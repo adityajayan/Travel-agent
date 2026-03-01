@@ -1,9 +1,26 @@
 import os
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
+
+
+def _strip_inline_comment(value: str) -> str:
+    """Strip trailing inline comments that python-dotenv keeps for unquoted values."""
+    idx = value.find(" #")
+    if idx != -1:
+        value = value[:idx]
+    return value.strip()
 
 
 class Settings(BaseSettings):
     anthropic_api_key: str = "test-key"
+
+    @field_validator("anthropic_api_key", mode="before")
+    @classmethod
+    def clean_api_key(cls, v: str) -> str:
+        if isinstance(v, str):
+            return _strip_inline_comment(v)
+        return v
+
     database_url: str = "sqlite+aiosqlite:///./travel_agent.db"
     use_real_apis: bool = False
     approval_timeout_minutes: int = 30
