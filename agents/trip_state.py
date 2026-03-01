@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import dataclasses
 
+from core.param_tracking import TrackedParams
 from core.state import ExtractedParams
 
 
@@ -40,6 +41,8 @@ class TripState:
     _policy: Any = field(default=None, repr=False, compare=False)
     # M4: Typed extracted parameters for cross-agent data passing
     extracted_params: ExtractedParams = field(default_factory=ExtractedParams)
+    # Provenance-tracked parameters (stated vs inferred)
+    tracked_params: Optional[TrackedParams] = field(default=None)
     # M4: Lock for thread-safe parallel state updates
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
@@ -59,9 +62,11 @@ class TripState:
         return [r.domain for r in self.sub_results if r.status == "failed"]
 
     def to_context_dict(self) -> Dict[str, Any]:
-        """Serialize state including ExtractedParams as a flat dict."""
+        """Serialize state including ExtractedParams and provenance tracking."""
         result = self.summary_dict()
         result["extracted_params"] = dataclasses.asdict(self.extracted_params)
+        if self.tracked_params:
+            result.update(self.tracked_params.to_context_dict())
         return result
 
     def summary_dict(self) -> Dict[str, Any]:

@@ -15,6 +15,7 @@ from api.schemas import BookingOut, ClarificationResponse, PolicyReportResponse,
 from core.approval_gate import ApprovalGate
 from core.audit_logger import AuditLogger
 from core.event_bus import EventBus
+from core.intent import extract_and_infer
 from core.policy_engine import PolicyEngine, PolicyNotFoundError
 from db.database import get_db
 from db.models import Booking, CorporatePolicy, PolicyViolation, Trip
@@ -86,10 +87,32 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
             await bus.emit({"type": "trip_failed", "message": str(exc)})
             return
 
+        # ── Smart defaults: extract and infer parameters ─────────────────────────
+        tracked_params = extract_and_infer(goal, trip.total_budget)
+        logger.info(
+            "Trip %s params: stated=%s inferred=%s missing=%s",
+            trip_id,
+            list(tracked_params.stated_params().keys()),
+            list(tracked_params.inferred_params().keys()),
+            tracked_params.missing_params(),
+        )
+
         # ── Agent selection and run ─────────────────────────────────────────────────
+        # Build context summary from tracked params for agent goal enrichment
+        param_context = tracked_params.to_context_dict()
+        enriched_goal = goal
+        inferred = param_context.get("system_inferred", {})
+        if inferred:
+            assumptions = "; ".join(
+                f"{k.replace('_', ' ')}: {v['value']} ({v['reason']})"
+                for k, v in inferred.items()
+            )
+            enriched_goal = f"{goal}\n\n[System defaults applied: {assumptions}]"
+
         domains = _detect_domains(goal)
         if len(domains) >= 2:
-            agent = OrchestratorAgent(trip_id, db, audit_logger, approval_gate)
+            agent = OrchestratorAgent(trip_id, db, audit_logger, approval_gate,
+                                     tracked_params=tracked_params)
         elif domains[0] == "hotel":
             agent = HotelAgent(trip_id, db, audit_logger, approval_gate, policy_engine=policy_engine)
         elif domains[0] == "transport":
@@ -99,7 +122,7 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
         else:
             agent = FlightAgent(trip_id, db, audit_logger, approval_gate, policy_engine=policy_engine)
 
-        narrative = await agent.run(goal)
+        narrative = await agent.run(enriched_goal)
 
         await db.refresh(trip)
         if trip.status == "running":

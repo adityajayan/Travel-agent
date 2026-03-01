@@ -7,6 +7,12 @@ from core.audit_logger import AuditLogger
 from agents.base_agent import BaseAgent
 from providers.base import BaseHotelProvider
 from providers.mock.hotel_provider import MockHotelProvider
+from tools.planning_tools import (
+    SUGGEST_ALTERNATIVE_DATES_DEF,
+    SUGGEST_TRIP_OPTIONS_DEF,
+    suggest_alternative_dates,
+    suggest_trip_options,
+)
 from tools.registry import ToolRegistry
 
 SEARCH_HOTELS_DEF = {
@@ -66,6 +72,8 @@ class HotelAgent(BaseAgent):
         registry.register(SEARCH_HOTELS_DEF, self._search_hotels)
         registry.register(BOOK_HOTEL_DEF, self._book_hotel)
         registry.register(CANCEL_HOTEL_DEF, self._cancel_hotel)
+        registry.register(SUGGEST_TRIP_OPTIONS_DEF, suggest_trip_options)
+        registry.register(SUGGEST_ALTERNATIVE_DATES_DEF, suggest_alternative_dates)
         super().__init__("HotelAgent", trip_id, db, registry, audit_logger, approval_gate, policy_engine)
 
     async def _search_hotels(
