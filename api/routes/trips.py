@@ -97,6 +97,41 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
             tracked_params.missing_params(),
         )
 
+        # Emit smart defaults event so the frontend can display assumptions
+        bus = EventBus.get_or_create(trip_id)
+        dest = tracked_params.destination_city
+        dest_city = dest.value if dest else None
+        budget_tiers = None
+        if dest_city and tracked_params.duration_nights:
+            from core.intent import generate_budget_tiers
+            num_pax = tracked_params.num_travelers.value if tracked_params.num_travelers else 1
+            tiers = generate_budget_tiers(
+                dest_city,
+                tracked_params.duration_nights.value,
+                num_pax,
+            )
+            budget_tiers = [
+                {
+                    "name": t.name,
+                    "label": t.label,
+                    "flight_description": t.flight_description,
+                    "hotel_description": t.hotel_description,
+                    "estimated_flight_cost": t.estimated_flight_cost,
+                    "estimated_hotel_per_night": t.estimated_hotel_per_night,
+                    "estimated_total": t.estimated_total,
+                }
+                for t in tiers
+            ]
+        await bus.emit({
+            "type": "smart_defaults",
+            "stated": tracked_params.stated_params(),
+            "inferred": {
+                k: {"value": v["value"], "reason": v["reason"], "confidence": v["confidence"]}
+                for k, v in tracked_params.inferred_params().items()
+            },
+            "budget_tiers": budget_tiers,
+        })
+
         # ── Agent selection and run ─────────────────────────────────────────────────
         # Build context summary from tracked params for agent goal enrichment
         param_context = tracked_params.to_context_dict()
@@ -269,6 +304,24 @@ async def submit_clarification(
         "answers": body.answers,
     })
     return {"status": "ok"}
+
+
+@router.patch("/{trip_id}")
+async def update_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
+    """Cancel a running trip."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    if trip.status in ("complete", "failed", "cancelled"):
+        raise HTTPException(status_code=400, detail=f"Trip already {trip.status}")
+
+    trip.status = "cancelled"
+    await db.commit()
+    bus = EventBus.get_or_create(trip_id)
+    await bus.emit({"type": "trip_failed", "message": "Trip cancelled by user"})
+    return {"status": "cancelled"}
 
 
 @router.get("/{trip_id}/policy-report", response_model=PolicyReportResponse)
