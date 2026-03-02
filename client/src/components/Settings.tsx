@@ -68,7 +68,7 @@ export default function Settings({ onClose }: SettingsProps) {
         <h2 className="text-lg font-semibold text-gray-900">Settings & Preferences</h2>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
+          className="text-gray-400 hover:text-gray-600 transition-colors p-2 -mr-2 min-h-touch min-w-touch flex items-center justify-center"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -198,7 +198,7 @@ export default function Settings({ onClose }: SettingsProps) {
           {saved && <span className="text-xs text-green-600 font-medium">Saved!</span>}
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+            className="px-4 py-3 lg:py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 active:bg-primary-800 transition-colors min-h-touch"
           >
             Save Preferences
           </button>

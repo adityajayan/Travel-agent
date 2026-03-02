@@ -3,10 +3,13 @@
   "short_name": "TravelAgent",
   "description": "AI-powered travel planning assistant",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
   "background_color": "#f9fafb",
   "theme_color": "#2563eb",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["travel", "productivity"],
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -19,6 +22,19 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Plan a Trip",
+      "short_name": "Plan",
+      "url": "/?tab=plan",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

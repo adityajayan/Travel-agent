@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import TripForm from "@/components/TripForm";
 import TripTimeline from "@/components/TripTimeline";
 import TripList from "@/components/TripList";
 import TripDetail from "@/components/TripDetail";
 import Settings, { getSavedPreferences } from "@/components/Settings";
+import BottomNav from "@/components/BottomNav";
+import InstallPrompt from "@/components/InstallPrompt";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { apiClient, CreateTripOptions } from "@/lib/api";
@@ -42,6 +44,8 @@ export interface Trip {
   result?: Record<string, unknown>;
 }
 
+// Mobile tab maps to views: "trips" = list, "plan" = form, "timeline" = live, "settings" = settings
+type MobileTab = "trips" | "plan" | "timeline" | "settings";
 type View = "timeline" | "detail" | "settings";
 
 export default function Home() {
@@ -50,6 +54,11 @@ export default function Home() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [authRequired, setAuthRequired] = useState<boolean | null>(null);
   const [view, setView] = useState<View>("timeline");
+  const [mobileTab, setMobileTab] = useState<MobileTab>("plan");
+
+  // Swipe gesture state
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const mainRef = useRef<HTMLElement>(null);
 
   const { isAuthenticated, logout } = useAuth();
   const { toast } = useToast();
@@ -101,12 +110,10 @@ export default function Home() {
   };
 
   const handleCreateTrip = async (options: CreateTripOptions) => {
-    // Merge saved preferences
     const prefs = getSavedPreferences();
     if (prefs.orgId && !options.org_id) options.org_id = prefs.orgId;
     if (prefs.policyId && !options.policy_id) options.policy_id = prefs.policyId;
 
-    // Enrich goal with departure city from preferences
     if (prefs.departureCity && !options.goal.toLowerCase().includes("from")) {
       options.goal = `${options.goal} from ${prefs.departureCity}`;
     }
@@ -119,6 +126,7 @@ export default function Home() {
       setActiveTrip(trip);
       setEvents([]);
       setView("timeline");
+      setMobileTab("timeline");
       toast("Trip created — agents are planning your trip", "success");
       refreshTrips();
     } catch (err) {
@@ -155,28 +163,69 @@ export default function Home() {
   };
 
   const handleSelectTrip = async (trip: Trip) => {
-    // Fetch full trip details (with bookings) when selecting a completed trip
     try {
       const full = await apiClient.getTrip(trip.id);
       setActiveTrip(full);
       if (full.status === "complete" || full.status === "completed" || full.status === "failed" || full.status === "cancelled") {
         setView("detail");
+        setMobileTab("timeline");
         setEvents([]);
       } else {
         setView("timeline");
+        setMobileTab("timeline");
         setEvents([]);
       }
     } catch {
       setActiveTrip(trip);
       setEvents([]);
       setView("timeline");
+      setMobileTab("timeline");
     }
   };
+
+  const handleMobileTabChange = (tab: string) => {
+    setMobileTab(tab as MobileTab);
+    if (tab === "settings") setView("settings");
+    else if (tab === "timeline") setView(activeTrip && (activeTrip.status === "complete" || activeTrip.status === "completed" || activeTrip.status === "failed" || activeTrip.status === "cancelled") ? "detail" : "timeline");
+    else if (tab === "plan" || tab === "trips") {
+      if (view === "settings") setView("timeline");
+    }
+  };
+
+  // ── Swipe gesture: swipe right from left edge navigates back ─────────────
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    // Only register if starting near the left edge (<30px)
+    if (touch.clientX < 30) {
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = Math.abs(touch.clientY - touchStartRef.current.y);
+    touchStartRef.current = null;
+
+    // Swipe right at least 80px, mostly horizontal
+    if (dx > 80 && dy < dx * 0.5) {
+      // Navigate "back" depending on current view
+      if (view === "detail") {
+        setView("timeline");
+      } else if (view === "settings") {
+        setView("timeline");
+        setMobileTab("plan");
+      } else if (mobileTab === "timeline") {
+        setMobileTab("trips");
+      }
+    }
+  }, [view, mobileTab]);
 
   // Show login form if backend requires auth and user isn't authenticated
   if (authRequired && !isAuthenticated) {
     return (
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-4xl mx-auto px-4 py-8 safe-area-x">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-primary-700">Travel Agent</h1>
           <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
@@ -187,13 +236,19 @@ export default function Home() {
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8">
-      <header className="mb-8 flex items-center justify-between">
+    <main
+      ref={mainRef}
+      className="max-w-5xl mx-auto px-4 py-6 lg:py-8 safe-area-x mobile-safe-bottom"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Header — compact on mobile */}
+      <header className="mb-6 lg:mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-primary-700">Travel Agent</h1>
-          <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-primary-700">Travel Agent</h1>
+          <p className="text-gray-500 mt-0.5 text-xs lg:text-sm">AI-powered travel planning assistant</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="hidden lg:flex items-center gap-2">
           <button
             onClick={() => setView(view === "settings" ? "timeline" : "settings")}
             className={`text-xs border px-3 py-1.5 rounded-lg transition-colors ${
@@ -213,26 +268,99 @@ export default function Home() {
             </button>
           )}
         </div>
+        {/* Mobile: just sign out if authenticated */}
+        {isAuthenticated && (
+          <button
+            onClick={logout}
+            className="lg:hidden text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg transition-colors min-h-touch flex items-center"
+          >
+            Sign Out
+          </button>
+        )}
       </header>
 
-      {view === "settings" ? (
-        <Settings onClose={() => setView("timeline")} />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left panel — trip list */}
-          <div className="lg:col-span-1">
-            <TripList
-              trips={trips}
-              activeTrip={activeTrip}
-              onSelect={handleSelectTrip}
-              onRefresh={refreshTrips}
-            />
+      {/* ── Desktop layout (unchanged) ──────────────────────────────────────── */}
+      <div className="hidden lg:block">
+        {view === "settings" ? (
+          <Settings onClose={() => setView("timeline")} />
+        ) : (
+          <div className="grid grid-cols-3 gap-6">
+            <div className="col-span-1">
+              <TripList
+                trips={trips}
+                activeTrip={activeTrip}
+                onSelect={handleSelectTrip}
+                onRefresh={refreshTrips}
+              />
+            </div>
+            <div className="col-span-2 space-y-6">
+              <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
+
+              {activeTrip && view === "detail" && (
+                <TripDetail
+                  trip={activeTrip}
+                  onCancel={handleCancelTrip}
+                  onBack={() => setView("timeline")}
+                />
+              )}
+
+              {activeTrip && view === "timeline" && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold">{activeTrip.goal}</h2>
+                    <div className="flex items-center gap-2">
+                      {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
+                        <button
+                          onClick={() => setView("detail")}
+                          className="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 px-2 py-1 rounded-md"
+                        >
+                          View Details
+                        </button>
+                      )}
+                      {(activeTrip.status === "pending" || activeTrip.status === "running") && (
+                        <button
+                          onClick={() => handleCancelTrip(activeTrip.id)}
+                          className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded-md"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      <StatusBadge status={activeTrip.status} connected={connected} />
+                    </div>
+                  </div>
+                  <TripTimeline
+                    events={events}
+                    onApproval={handleApproval}
+                    onClarification={handleClarification}
+                    tripId={activeTrip.id}
+                  />
+                </div>
+              )}
+            </div>
           </div>
+        )}
+      </div>
 
-          {/* Right panel — form + timeline or detail */}
-          <div className="lg:col-span-2 space-y-6">
-            <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
+      {/* ── Mobile layout (tab-driven) ──────────────────────────────────────── */}
+      <div className="lg:hidden">
+        {/* Trips tab */}
+        {mobileTab === "trips" && (
+          <TripList
+            trips={trips}
+            activeTrip={activeTrip}
+            onSelect={handleSelectTrip}
+            onRefresh={refreshTrips}
+          />
+        )}
 
+        {/* Plan tab */}
+        {mobileTab === "plan" && (
+          <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
+        )}
+
+        {/* Live / Timeline tab */}
+        {mobileTab === "timeline" && (
+          <>
             {activeTrip && view === "detail" && (
               <TripDetail
                 trip={activeTrip}
@@ -242,22 +370,22 @@ export default function Home() {
             )}
 
             {activeTrip && view === "timeline" && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">{activeTrip.goal}</h2>
-                  <div className="flex items-center gap-2">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-semibold truncate flex-1 mr-2">{activeTrip.goal}</h2>
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
                       <button
                         onClick={() => setView("detail")}
-                        className="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 px-2 py-1 rounded-md"
+                        className="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 px-2 py-1.5 rounded-md min-h-touch flex items-center"
                       >
-                        View Details
+                        Details
                       </button>
                     )}
                     {(activeTrip.status === "pending" || activeTrip.status === "running") && (
                       <button
                         onClick={() => handleCancelTrip(activeTrip.id)}
-                        className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded-md"
+                        className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1.5 rounded-md min-h-touch flex items-center"
                       >
                         Cancel
                       </button>
@@ -273,9 +401,37 @@ export default function Home() {
                 />
               </div>
             )}
-          </div>
-        </div>
-      )}
+
+            {!activeTrip && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+                <p className="text-sm text-gray-400">No active trip</p>
+                <button
+                  onClick={() => setMobileTab("plan")}
+                  className="mt-3 text-xs text-primary-600 font-medium min-h-touch flex items-center justify-center mx-auto"
+                >
+                  Plan a new trip
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Settings tab */}
+        {mobileTab === "settings" && (
+          <Settings onClose={() => { setView("timeline"); setMobileTab("plan"); }} />
+        )}
+      </div>
+
+      {/* ── Bottom navigation (mobile only) ─────────────────────────────────── */}
+      <BottomNav
+        activeTab={mobileTab}
+        onTabChange={handleMobileTabChange}
+        tripCount={trips.length}
+        hasActiveTrip={activeTrip?.status === "running"}
+      />
+
+      {/* ── Install prompt ──────────────────────────────────────────────────── */}
+      <InstallPrompt />
     </main>
   );
 }
