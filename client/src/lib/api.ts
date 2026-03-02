@@ -5,6 +5,9 @@ export interface CreateTripOptions {
   policy_id?: string;
 }
 
+/** Result of the auth probe: "ok" = no auth needed, "auth_required" = need JWT, "unavailable" = backend down */
+export type AuthStatus = "ok" | "auth_required" | "unavailable";
+
 class ApiClient {
   private token: string | null = null;
 
@@ -31,6 +34,9 @@ class ApiClient {
       body: JSON.stringify(options),
     });
     if (!res.ok) {
+      if (res.status >= 502 && res.status <= 504) {
+        throw new Error("Backend server is not running. Start it with: python -m uvicorn api.main:app --port 8000");
+      }
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Create trip failed: ${res.status}`);
     }
@@ -40,6 +46,9 @@ class ApiClient {
   async getTrips() {
     const res = await fetch("/api/trips", { headers: this.headers() });
     if (!res.ok) {
+      if (res.status >= 502 && res.status <= 504) {
+        throw new Error("Backend server is not running. Start it with: python -m uvicorn api.main:app --port 8000");
+      }
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Get trips failed: ${res.status}`);
     }
@@ -105,16 +114,17 @@ class ApiClient {
     return res.json();
   }
 
-  async checkAuth(): Promise<boolean> {
+  async checkAuth(): Promise<AuthStatus> {
     try {
-      const res = await fetch("/api/trips", { headers: this.headers() });
-      // Only 401 means "auth is required and user isn't authenticated"
-      if (res.status === 401) return false;
-      // Any other response (200, 500, etc.) means auth is not blocking us
-      return true;
+      const res = await fetch("/api/health");
+      if (res.status === 401) return "auth_required";
+      if (res.ok) return "ok";
+      // 502/503/504 = Next.js proxy couldn't reach backend
+      if (res.status >= 500) return "unavailable";
+      return "ok";
     } catch {
-      // Network error (backend not running yet) — don't gate behind login
-      return true;
+      // Network error — backend or proxy completely unreachable
+      return "unavailable";
     }
   }
 }
