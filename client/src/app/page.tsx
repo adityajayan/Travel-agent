@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import TripForm from "@/components/TripForm";
 import TripTimeline from "@/components/TripTimeline";
 import TripList from "@/components/TripList";
+import TripDetail from "@/components/TripDetail";
+import Settings, { getSavedPreferences } from "@/components/Settings";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { apiClient, CreateTripOptions } from "@/lib/api";
@@ -28,14 +30,26 @@ export interface Trip {
   goal: string;
   status: string;
   created_at?: string;
+  total_spent?: number;
+  total_budget?: number;
+  summary_text?: string;
+  bookings?: Array<{
+    domain: string;
+    provider: string;
+    details: Record<string, unknown>;
+    amount: number;
+  }>;
   result?: Record<string, unknown>;
 }
+
+type View = "timeline" | "detail" | "settings";
 
 export default function Home() {
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
   const [events, setEvents] = useState<TripEvent[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [authRequired, setAuthRequired] = useState<boolean | null>(null);
+  const [view, setView] = useState<View>("timeline");
 
   const { isAuthenticated, logout } = useAuth();
   const { toast } = useToast();
@@ -87,10 +101,24 @@ export default function Home() {
   };
 
   const handleCreateTrip = async (options: CreateTripOptions) => {
+    // Merge saved preferences
+    const prefs = getSavedPreferences();
+    if (prefs.orgId && !options.org_id) options.org_id = prefs.orgId;
+    if (prefs.policyId && !options.policy_id) options.policy_id = prefs.policyId;
+
+    // Enrich goal with departure city from preferences
+    if (prefs.departureCity && !options.goal.toLowerCase().includes("from")) {
+      options.goal = `${options.goal} from ${prefs.departureCity}`;
+    }
+    if (prefs.cabinClass && prefs.cabinClass !== "economy" && !options.goal.toLowerCase().includes("class")) {
+      options.goal = `${options.goal}, ${prefs.cabinClass} class`;
+    }
+
     try {
       const trip = await apiClient.createTrip(options);
       setActiveTrip(trip);
       setEvents([]);
+      setView("timeline");
       toast("Trip created — agents are planning your trip", "success");
       refreshTrips();
     } catch (err) {
@@ -115,9 +143,34 @@ export default function Home() {
     }
   };
 
-  const handleSelectTrip = (trip: Trip) => {
-    setActiveTrip(trip);
-    setEvents([]);
+  const handleCancelTrip = async (tripId: string) => {
+    try {
+      await apiClient.cancelTrip(tripId);
+      toast("Trip cancelled", "info");
+      setActiveTrip((prev) => prev ? { ...prev, status: "cancelled" } : null);
+      refreshTrips();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to cancel trip");
+    }
+  };
+
+  const handleSelectTrip = async (trip: Trip) => {
+    // Fetch full trip details (with bookings) when selecting a completed trip
+    try {
+      const full = await apiClient.getTrip(trip.id);
+      setActiveTrip(full);
+      if (full.status === "complete" || full.status === "completed" || full.status === "failed" || full.status === "cancelled") {
+        setView("detail");
+        setEvents([]);
+      } else {
+        setView("timeline");
+        setEvents([]);
+      }
+    } catch {
+      setActiveTrip(trip);
+      setEvents([]);
+      setView("timeline");
+    }
   };
 
   // Show login form if backend requires auth and user isn't authenticated
@@ -134,53 +187,95 @@ export default function Home() {
   }
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-8">
+    <main className="max-w-5xl mx-auto px-4 py-8">
       <header className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-primary-700">Travel Agent</h1>
           <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
         </div>
-        {isAuthenticated && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={logout}
-            className="text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg transition-colors"
+            onClick={() => setView(view === "settings" ? "timeline" : "settings")}
+            className={`text-xs border px-3 py-1.5 rounded-lg transition-colors ${
+              view === "settings"
+                ? "bg-primary-50 border-primary-200 text-primary-700"
+                : "text-gray-500 hover:text-gray-700 border-gray-300"
+            }`}
           >
-            Sign Out
+            Settings
           </button>
-        )}
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left panel — trip list */}
-        <div className="lg:col-span-1">
-          <TripList
-            trips={trips}
-            activeTrip={activeTrip}
-            onSelect={handleSelectTrip}
-            onRefresh={refreshTrips}
-          />
-        </div>
-
-        {/* Right panel — form + timeline */}
-        <div className="lg:col-span-2 space-y-6">
-          <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
-
-          {activeTrip && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">{activeTrip.goal}</h2>
-                <StatusBadge status={activeTrip.status} connected={connected} />
-              </div>
-              <TripTimeline
-                events={events}
-                onApproval={handleApproval}
-                onClarification={handleClarification}
-                tripId={activeTrip.id}
-              />
-            </div>
+          {isAuthenticated && (
+            <button
+              onClick={logout}
+              className="text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Sign Out
+            </button>
           )}
         </div>
-      </div>
+      </header>
+
+      {view === "settings" ? (
+        <Settings onClose={() => setView("timeline")} />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left panel — trip list */}
+          <div className="lg:col-span-1">
+            <TripList
+              trips={trips}
+              activeTrip={activeTrip}
+              onSelect={handleSelectTrip}
+              onRefresh={refreshTrips}
+            />
+          </div>
+
+          {/* Right panel — form + timeline or detail */}
+          <div className="lg:col-span-2 space-y-6">
+            <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
+
+            {activeTrip && view === "detail" && (
+              <TripDetail
+                trip={activeTrip}
+                onCancel={handleCancelTrip}
+                onBack={() => setView("timeline")}
+              />
+            )}
+
+            {activeTrip && view === "timeline" && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">{activeTrip.goal}</h2>
+                  <div className="flex items-center gap-2">
+                    {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
+                      <button
+                        onClick={() => setView("detail")}
+                        className="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 px-2 py-1 rounded-md"
+                      >
+                        View Details
+                      </button>
+                    )}
+                    {(activeTrip.status === "pending" || activeTrip.status === "running") && (
+                      <button
+                        onClick={() => handleCancelTrip(activeTrip.id)}
+                        className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded-md"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <StatusBadge status={activeTrip.status} connected={connected} />
+                  </div>
+                </div>
+                <TripTimeline
+                  events={events}
+                  onApproval={handleApproval}
+                  onClarification={handleClarification}
+                  tripId={activeTrip.id}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -190,7 +285,9 @@ function StatusBadge({ status, connected }: { status: string; connected: boolean
     pending: "bg-yellow-100 text-yellow-700",
     running: "bg-blue-100 text-blue-700",
     completed: "bg-green-100 text-green-700",
+    complete: "bg-green-100 text-green-700",
     failed: "bg-red-100 text-red-700",
+    cancelled: "bg-gray-100 text-gray-600",
   };
 
   return (

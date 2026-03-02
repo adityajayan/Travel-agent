@@ -83,6 +83,28 @@ class ApiClient {
     return res.json();
   }
 
+  async cancelTrip(tripId: string) {
+    const res = await fetch(`/api/trips/${tripId}`, {
+      method: "PATCH",
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Cancel trip failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async getPolicies(orgId?: string) {
+    const url = orgId ? `/api/policies?org_id=${orgId}` : "/api/policies";
+    const res = await fetch(url, { headers: this.headers() });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Get policies failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
   async checkAuth(): Promise<boolean> {
     try {
       const res = await fetch("/api/trips", { headers: this.headers() });

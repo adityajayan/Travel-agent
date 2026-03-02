@@ -16,6 +16,22 @@ interface TripSummary {
   total_spent?: number;
 }
 
+interface InferredParam {
+  value: unknown;
+  reason: string;
+  confidence: number;
+}
+
+interface BudgetTier {
+  name: string;
+  label: string;
+  flight_description: string;
+  hotel_description: string;
+  estimated_flight_cost: number;
+  estimated_hotel_per_night: number;
+  estimated_total: number;
+}
+
 interface TripEvent {
   type: string;
   message?: string;
@@ -27,6 +43,10 @@ interface TripEvent {
   context?: Record<string, unknown>;
   questions?: Array<{ key: string; question: string; placeholder?: string }>;
   request_id?: string;
+  // smart_defaults fields
+  stated?: Record<string, unknown>;
+  inferred?: Record<string, InferredParam>;
+  budget_tiers?: BudgetTier[];
 }
 
 interface TripTimelineProps {
@@ -207,6 +227,236 @@ function ClarificationForm({
   );
 }
 
+// ── Smart Defaults Card ──────────────────────────────────────────────────────
+
+function SmartDefaultsCard({ event }: { event: TripEvent }) {
+  const [expanded, setExpanded] = useState(false);
+  const stated = event.stated || {};
+  const inferred = event.inferred || {};
+  const tiers = event.budget_tiers;
+
+  const statedEntries = Object.entries(stated);
+  const inferredEntries = Object.entries(inferred);
+
+  const formatLabel = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+  return (
+    <div className="rounded-lg border border-violet-200 bg-violet-50 overflow-hidden">
+      {/* Header */}
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="h-5 w-5 rounded-full bg-violet-500 flex items-center justify-center flex-shrink-0">
+            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+          </span>
+          <p className="text-sm font-medium text-violet-800">Smart defaults applied to your request</p>
+        </div>
+
+        {/* Stated params (what user said) */}
+        {statedEntries.length > 0 && (
+          <div className="mb-3">
+            <p className="text-xs font-medium text-violet-600 mb-1.5">Your preferences:</p>
+            <div className="flex flex-wrap gap-2">
+              {statedEntries.map(([key, value]) => (
+                <span key={key} className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded-md border border-violet-200 text-xs">
+                  <span className="text-violet-500">{formatLabel(key)}:</span>
+                  <span className="font-medium text-violet-800">{String(value)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Inferred defaults (what system assumed) */}
+        {inferredEntries.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <p className="text-xs font-medium text-violet-600">We assumed:</p>
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="text-xs text-violet-500 hover:text-violet-700 underline"
+              >
+                {expanded ? "hide details" : "show details"}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {inferredEntries.map(([key, param]) => (
+                <span key={key} className="inline-flex items-center gap-1 px-2 py-1 bg-violet-100 rounded-md border border-violet-200 text-xs">
+                  <span className="text-violet-500">{formatLabel(key)}:</span>
+                  <span className="font-medium text-violet-700">{String(param.value)}</span>
+                  {expanded && (
+                    <span className="text-violet-400 ml-1">— {param.reason}</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Budget Tiers */}
+      {tiers && tiers.length > 0 && (
+        <div className="border-t border-violet-200 p-4 bg-white/50">
+          <p className="text-xs font-medium text-violet-600 mb-3">Estimated budget range for this trip:</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {tiers.map((tier) => (
+              <BudgetTierCard key={tier.name} tier={tier} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BudgetTierCard({ tier }: { tier: BudgetTier }) {
+  const tierColors: Record<string, { border: string; bg: string; accent: string; badge: string }> = {
+    budget: { border: "border-emerald-200", bg: "bg-emerald-50", accent: "text-emerald-700", badge: "bg-emerald-100 text-emerald-700" },
+    comfortable: { border: "border-blue-200", bg: "bg-blue-50", accent: "text-blue-700", badge: "bg-blue-100 text-blue-700" },
+    premium: { border: "border-amber-200", bg: "bg-amber-50", accent: "text-amber-700", badge: "bg-amber-100 text-amber-700" },
+  };
+  const colors = tierColors[tier.name] || tierColors.comfortable;
+
+  return (
+    <div className={`rounded-lg border ${colors.border} ${colors.bg} p-3`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors.badge}`}>
+          {tier.label}
+        </span>
+        <span className={`text-sm font-bold ${colors.accent}`}>
+          ~${tier.estimated_total.toLocaleString()}
+        </span>
+      </div>
+      <div className="text-xs text-gray-600 space-y-1">
+        <div className="flex items-start gap-1">
+          <DomainIcon domain="flight" />
+          <span>{tier.flight_description}</span>
+        </div>
+        <div className="flex items-start gap-1">
+          <DomainIcon domain="hotel" />
+          <span>{tier.hotel_description}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Human-readable Approval Card ─────────────────────────────────────────────
+
+function ApprovalCard({
+  event,
+  onApproval,
+}: {
+  event: TripEvent;
+  onApproval: (id: string, approved: boolean) => void;
+}) {
+  const [decided, setDecided] = useState<"approved" | "rejected" | null>(null);
+  const context = event.context || {};
+
+  // Extract meaningful info from the context
+  const domain = (context.domain as string) || "";
+  const action = (context.action as string) || "";
+  const details = (context.details as Record<string, unknown>) || context;
+  const violations = (context.policy_violations_json as Array<Record<string, unknown>>) || [];
+
+  const actionLabel = action.replace(/_/g, " ").replace(/:/g, " — ");
+
+  const handleDecision = (approved: boolean) => {
+    if (event.approval_id) {
+      onApproval(event.approval_id, approved);
+      setDecided(approved ? "approved" : "rejected");
+    }
+  };
+
+  if (decided) {
+    const colors = decided === "approved"
+      ? "bg-green-50 border-green-200 text-green-700"
+      : "bg-red-50 border-red-200 text-red-700";
+    return (
+      <div className={`flex items-center gap-3 p-4 rounded-lg border ${colors}`}>
+        <span className={`h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0 ${decided === "approved" ? "bg-green-500" : "bg-red-500"}`}>
+          <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={decided === "approved" ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+          </svg>
+        </span>
+        <p className="text-sm font-medium">
+          Booking {decided === "approved" ? "approved" : "rejected"}: {actionLabel}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg bg-amber-50 border border-amber-200 overflow-hidden">
+      <div className="flex items-start gap-3 p-4">
+        <span className="mt-0.5 h-5 w-5 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
+          <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+        </span>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-amber-800 mb-1">Approval Required</p>
+          {actionLabel && (
+            <p className="text-xs text-amber-700 mb-2">
+              Action: <span className="font-medium capitalize">{actionLabel}</span>
+            </p>
+          )}
+
+          {/* Booking details */}
+          {Object.keys(details).length > 0 && (
+            <div className="mb-3 bg-white rounded-md border border-amber-100 p-2.5">
+              <div className="text-xs text-gray-600 space-y-1">
+                {Object.entries(details).map(([key, value]) => {
+                  if (key === "policy_violations_json" || key === "domain" || key === "action") return null;
+                  return (
+                    <div key={key} className="flex gap-1">
+                      <span className="text-gray-500 capitalize">{key.replace(/_/g, " ")}:</span>
+                      <span className="font-medium">{typeof value === "object" ? JSON.stringify(value) : String(value)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Policy violations */}
+          {violations.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-medium text-amber-700 mb-1">Policy flags:</p>
+              <div className="space-y-1">
+                {violations.map((v, i) => (
+                  <div key={i} className="flex items-start gap-1.5 text-xs">
+                    <span className={`mt-0.5 h-3 w-3 rounded-full flex-shrink-0 ${v.severity === "hard" ? "bg-red-400" : "bg-yellow-400"}`} />
+                    <span className="text-gray-700">{String(v.message)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleDecision(true)}
+              className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors"
+            >
+              Approve
+            </button>
+            <button
+              onClick={() => handleDecision(false)}
+              className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition-colors"
+            >
+              Reject
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Timeline Event Router ──────────────────────────────────────────────
+
 function TimelineEvent({
   event,
   onApproval,
@@ -254,38 +504,11 @@ function TimelineEvent({
         </div>
       );
 
+    case "smart_defaults":
+      return <SmartDefaultsCard event={event} />;
+
     case "approval_required":
-      return (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-50 border border-amber-200">
-          <span className="mt-0.5 h-5 w-5 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
-            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </span>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-amber-800 mb-2">Approval Required</p>
-            {event.context && (
-              <pre className="text-xs bg-white rounded p-2 mb-3 overflow-auto border border-amber-100">
-                {JSON.stringify(event.context, null, 2)}
-              </pre>
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={() => event.approval_id && onApproval(event.approval_id, true)}
-                className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors"
-              >
-                Approve
-              </button>
-              <button
-                onClick={() => event.approval_id && onApproval(event.approval_id, false)}
-                className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition-colors"
-              >
-                Reject
-              </button>
-            </div>
-          </div>
-        </div>
-      );
+      return <ApprovalCard event={event} onApproval={onApproval} />;
 
     case "clarification_needed":
       return (

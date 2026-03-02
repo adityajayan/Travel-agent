@@ -66,6 +66,8 @@ def test_components_exist():
         "TripForm.tsx",
         "TripTimeline.tsx",
         "TripList.tsx",
+        "TripDetail.tsx",
+        "Settings.tsx",
         "VoiceInputButton.tsx",
         "Toast.tsx",
         "AuthGate.tsx",
@@ -181,6 +183,69 @@ def test_page_uses_toast_and_auth():
     assert "useAuth" in content
     assert "usePushNotifications" in content
     assert "toast(" in content
+
+
+def test_trip_detail_has_booking_breakdown():
+    """TripDetail shows cost breakdown by domain and booking details."""
+    detail_path = os.path.join(CLIENT_DIR, "src", "components", "TripDetail.tsx")
+    with open(detail_path) as f:
+        content = f.read()
+    assert "costByDomain" in content
+    assert "BookingData" in content
+    assert "onCancel" in content
+    assert "summary_text" in content
+
+
+def test_settings_has_preferences():
+    """Settings component stores org and travel preferences."""
+    settings_path = os.path.join(CLIENT_DIR, "src", "components", "Settings.tsx")
+    with open(settings_path) as f:
+        content = f.read()
+    assert "orgId" in content
+    assert "cabinClass" in content
+    assert "localStorage" in content
+    assert "getSavedPreferences" in content
+
+
+def test_timeline_has_smart_defaults():
+    """TripTimeline handles smart_defaults event type."""
+    tl_path = os.path.join(CLIENT_DIR, "src", "components", "TripTimeline.tsx")
+    with open(tl_path) as f:
+        content = f.read()
+    assert "smart_defaults" in content
+    assert "SmartDefaultsCard" in content
+    assert "BudgetTierCard" in content
+    assert "ApprovalCard" in content
+
+
+def test_trip_list_has_search_and_filter():
+    """TripList includes search input and status filter."""
+    list_path = os.path.join(CLIENT_DIR, "src", "components", "TripList.tsx")
+    with open(list_path) as f:
+        content = f.read()
+    assert "search" in content
+    assert "statusFilter" in content
+    assert "filtered" in content
+
+
+def test_api_client_has_cancel_trip():
+    """API client supports trip cancellation."""
+    api_path = os.path.join(CLIENT_DIR, "src", "lib", "api.ts")
+    with open(api_path) as f:
+        content = f.read()
+    assert "cancelTrip" in content
+    assert "PATCH" in content
+
+
+def test_page_has_settings_and_detail_views():
+    """Main page includes Settings and TripDetail views."""
+    page_path = os.path.join(CLIENT_DIR, "src", "app", "page.tsx")
+    with open(page_path) as f:
+        content = f.read()
+    assert "Settings" in content
+    assert "TripDetail" in content
+    assert "getSavedPreferences" in content
+    assert "handleCancelTrip" in content
 
 
 def test_env_example_exists():
