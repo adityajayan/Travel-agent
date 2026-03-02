@@ -10,7 +10,7 @@ import BottomNav from "@/components/BottomNav";
 import InstallPrompt from "@/components/InstallPrompt";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { apiClient, CreateTripOptions } from "@/lib/api";
+import { apiClient, AuthStatus, CreateTripOptions } from "@/lib/api";
 import { useAuth, LoginForm } from "@/components/AuthGate";
 import { useToast } from "@/components/Toast";
 
@@ -52,7 +52,7 @@ export default function Home() {
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
   const [events, setEvents] = useState<TripEvent[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [authRequired, setAuthRequired] = useState<boolean | null>(null);
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [view, setView] = useState<View>("timeline");
   const [mobileTab, setMobileTab] = useState<MobileTab>("plan");
 
@@ -66,8 +66,8 @@ export default function Home() {
 
   // Check whether the backend requires auth
   useEffect(() => {
-    apiClient.checkAuth().then((ok) => {
-      setAuthRequired(!ok && !isAuthenticated);
+    apiClient.checkAuth().then((status) => {
+      setAuthStatus(status);
     });
   }, [isAuthenticated]);
 
@@ -222,8 +222,8 @@ export default function Home() {
     }
   }, [view, mobileTab]);
 
-  // Show login form if backend requires auth and user isn't authenticated
-  if (authRequired && !isAuthenticated) {
+  // Show login form only if backend explicitly returns 401
+  if (authStatus === "auth_required" && !isAuthenticated) {
     return (
       <main className="max-w-4xl mx-auto px-4 py-8 safe-area-x">
         <header className="mb-8">
@@ -231,6 +231,36 @@ export default function Home() {
           <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
         </header>
         <LoginForm />
+      </main>
+    );
+  }
+
+  // Show backend unavailable banner
+  if (authStatus === "unavailable") {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-8 safe-area-x">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-primary-700">Travel Agent</h1>
+          <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
+        </header>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+          <div className="text-2xl mb-3">&#x26A0;&#xFE0F;</div>
+          <h2 className="text-lg font-semibold text-amber-800 mb-2">Backend Not Running</h2>
+          <p className="text-sm text-amber-700 mb-4">
+            The backend server is not reachable. Make sure it&apos;s running before using the app.
+          </p>
+          <pre className="bg-amber-100 rounded-lg p-3 text-xs text-left text-amber-900 overflow-x-auto mb-4">
+{`# In a separate terminal, from the project root:
+pip install -r requirements.txt
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
+          </pre>
+          <button
+            onClick={() => apiClient.checkAuth().then(setAuthStatus)}
+            className="px-4 py-2.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 active:bg-amber-800 transition-colors min-h-touch"
+          >
+            Retry Connection
+          </button>
+        </div>
       </main>
     );
   }

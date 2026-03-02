@@ -142,16 +142,20 @@ def test_toast_has_provider_and_hook():
 
 
 def test_api_client_has_create_trip_options():
-    """API client supports extended trip creation fields."""
+    """API client supports extended trip creation fields and auth status."""
     api_path = os.path.join(CLIENT_DIR, "src", "lib", "api.ts")
     with open(api_path) as f:
         content = f.read()
     assert "CreateTripOptions" in content
+    assert "AuthStatus" in content
     assert "total_budget" in content
     assert "org_id" in content
     assert "policy_id" in content
     assert "clearToken" in content
     assert "checkAuth" in content
+    # Should return AuthStatus not boolean
+    assert "auth_required" in content
+    assert "unavailable" in content
 
 
 def test_trip_form_has_travel_fields():
@@ -334,7 +338,7 @@ def test_manifest_has_shortcuts():
 
 
 def test_page_has_mobile_layout():
-    """Main page uses BottomNav, InstallPrompt, and swipe gestures."""
+    """Main page uses BottomNav, InstallPrompt, swipe gestures, and backend check."""
     page_path = os.path.join(CLIENT_DIR, "src", "app", "page.tsx")
     with open(page_path) as f:
         content = f.read()
@@ -345,6 +349,10 @@ def test_page_has_mobile_layout():
     assert "onTouchEnd" in content
     assert "mobile-safe-bottom" in content
     assert "lg:hidden" in content
+    # Backend unavailable detection
+    assert "unavailable" in content
+    assert "Backend Not Running" in content
+    assert "Retry Connection" in content
 
 
 def test_touch_targets_on_key_components():
