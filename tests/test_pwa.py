@@ -68,6 +68,8 @@ def test_components_exist():
         "TripList.tsx",
         "TripDetail.tsx",
         "Settings.tsx",
+        "BottomNav.tsx",
+        "InstallPrompt.tsx",
         "VoiceInputButton.tsx",
         "Toast.tsx",
         "AuthGate.tsx",
@@ -246,6 +248,112 @@ def test_page_has_settings_and_detail_views():
     assert "TripDetail" in content
     assert "getSavedPreferences" in content
     assert "handleCancelTrip" in content
+
+
+# ── Tier 3: Mobile polish (PWA) ──────────────────────────────────────────────
+
+
+def test_bottom_nav_has_mobile_tabs():
+    """BottomNav provides mobile tab navigation with touch targets."""
+    nav_path = os.path.join(CLIENT_DIR, "src", "components", "BottomNav.tsx")
+    with open(nav_path) as f:
+        content = f.read()
+    assert "btm-nav" in content
+    assert "lg:hidden" in content
+    assert "min-h-touch" in content
+    assert "onTabChange" in content
+    assert "safe-area-bottom" in content
+
+
+def test_install_prompt_has_beforeinstallprompt():
+    """InstallPrompt handles beforeinstallprompt and iOS guidance."""
+    prompt_path = os.path.join(CLIENT_DIR, "src", "components", "InstallPrompt.tsx")
+    with open(prompt_path) as f:
+        content = f.read()
+    assert "beforeinstallprompt" in content
+    assert "isIos" in content
+    assert "isStandalone" in content
+    assert "handleInstall" in content
+    assert "handleDismiss" in content
+    assert "Add to Home Screen" in content
+
+
+def test_offline_page_exists():
+    """Offline fallback page exists for service worker."""
+    offline_path = os.path.join(CLIENT_DIR, "public", "offline.html")
+    assert os.path.isfile(offline_path)
+    with open(offline_path) as f:
+        content = f.read()
+    assert "offline" in content.lower()
+    assert "cached-trips" in content
+
+
+def test_globals_css_has_mobile_utilities():
+    """globals.css has safe-area insets, touch targets, and bottom nav styles."""
+    css_path = os.path.join(CLIENT_DIR, "src", "app", "globals.css")
+    with open(css_path) as f:
+        content = f.read()
+    assert "safe-area-inset-bottom" in content
+    assert "min-h-touch" in content
+    assert "btm-nav" in content
+    assert "mobile-safe-bottom" in content
+    assert "-webkit-tap-highlight-color" in content
+
+
+def test_layout_has_viewport_fit_cover():
+    """Layout sets viewport-fit cover for notched devices."""
+    layout_path = os.path.join(CLIENT_DIR, "src", "app", "layout.tsx")
+    with open(layout_path) as f:
+        content = f.read()
+    assert "viewportFit" in content
+    assert "cover" in content
+    assert "black-translucent" in content
+    assert "safe-area-top" in content
+
+
+def test_next_config_has_offline_fallback():
+    """next.config.js configures offline fallback and runtime caching."""
+    config_path = os.path.join(CLIENT_DIR, "next.config.js")
+    with open(config_path) as f:
+        content = f.read()
+    assert "fallbacks" in content
+    assert "offline.html" in content
+    assert "runtimeCaching" in content
+    assert "NetworkFirst" in content
+    assert "api-trip-detail" in content
+
+
+def test_manifest_has_shortcuts():
+    """manifest.json includes app shortcuts for quick actions."""
+    manifest_path = os.path.join(CLIENT_DIR, "public", "manifest.json")
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+    assert "shortcuts" in manifest
+    assert len(manifest["shortcuts"]) >= 1
+    assert manifest["shortcuts"][0]["name"] == "Plan a Trip"
+
+
+def test_page_has_mobile_layout():
+    """Main page uses BottomNav, InstallPrompt, and swipe gestures."""
+    page_path = os.path.join(CLIENT_DIR, "src", "app", "page.tsx")
+    with open(page_path) as f:
+        content = f.read()
+    assert "BottomNav" in content
+    assert "InstallPrompt" in content
+    assert "mobileTab" in content
+    assert "onTouchStart" in content
+    assert "onTouchEnd" in content
+    assert "mobile-safe-bottom" in content
+    assert "lg:hidden" in content
+
+
+def test_touch_targets_on_key_components():
+    """Key interactive components use min-h-touch for 44px tap targets."""
+    for name in ["TripForm.tsx", "TripList.tsx", "TripDetail.tsx", "Settings.tsx"]:
+        path = os.path.join(CLIENT_DIR, "src", "components", name)
+        with open(path) as f:
+            content = f.read()
+        assert "min-h-touch" in content, f"{name} should use min-h-touch for touch targets"
 
 
 def test_env_example_exists():

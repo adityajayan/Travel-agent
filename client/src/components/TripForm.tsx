@@ -78,8 +78,8 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <label className="block text-sm font-medium text-gray-700 mb-4">
+    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6">
+      <label className="block text-sm font-medium text-gray-700 mb-3 lg:mb-4">
         Plan your trip
       </label>
 
@@ -178,14 +178,14 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-gray-400 hidden sm:block">
           Leave any field blank and the agents will figure out the best options for you.
         </p>
         <button
           type="submit"
           disabled={disabled || !canSubmit}
-          className="px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full sm:w-auto px-5 py-3 lg:py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 active:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-touch"
         >
           Plan Trip
         </button>

@@ -77,7 +77,7 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
             {onBack && (
               <button
                 onClick={onBack}
-                className="text-xs text-gray-500 hover:text-gray-700 mb-2 flex items-center gap-1"
+                className="text-xs text-gray-500 hover:text-gray-700 mb-2 flex items-center gap-1 min-h-touch active:text-gray-900"
               >
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -95,7 +95,7 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
             {canCancel && onCancel && (
               <button
                 onClick={() => onCancel(trip.id)}
-                className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded-md hover:bg-red-50 transition-colors"
+                className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-3 py-2 rounded-md hover:bg-red-50 active:bg-red-100 transition-colors min-h-touch"
               >
                 Cancel Trip
               </button>
