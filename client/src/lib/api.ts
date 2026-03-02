@@ -108,9 +108,13 @@ class ApiClient {
   async checkAuth(): Promise<boolean> {
     try {
       const res = await fetch("/api/trips", { headers: this.headers() });
-      return res.ok;
+      // Only 401 means "auth is required and user isn't authenticated"
+      if (res.status === 401) return false;
+      // Any other response (200, 500, etc.) means auth is not blocking us
+      return true;
     } catch {
-      return false;
+      // Network error (backend not running yet) — don't gate behind login
+      return true;
     }
   }
 }
