@@ -73,19 +73,18 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
   };
 
   const handleVoiceResult = (transcript: string) => {
-    // Voice input goes into the notes/free-text field
     setNotes(transcript);
   };
 
+  const inputClasses = "w-full border-2 border-border-heavy bg-paper px-3 py-2.5 text-sm font-body text-text-primary placeholder:text-text-ghost focus:outline-none focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed";
+
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6">
-      <label className="block text-sm font-medium text-gray-700 mb-3 lg:mb-4">
-        Plan your trip
-      </label>
+    <form onSubmit={handleSubmit} className="bg-white border-2 border-border-heavy p-4 lg:p-6 card-hover-bar">
+      <p className="eyebrow mb-4">Plan Your Trip</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
-          <label htmlFor="destination" className="block text-xs font-medium text-gray-600 mb-1">
+          <label htmlFor="destination" className="block font-body text-xs font-medium text-text-mid mb-1">
             Where to? *
           </label>
           <input
@@ -94,12 +93,12 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
             placeholder="e.g. Paris, Tokyo, New York"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className={inputClasses}
             disabled={disabled}
           />
         </div>
         <div>
-          <label htmlFor="duration" className="block text-xs font-medium text-gray-600 mb-1">
+          <label htmlFor="duration" className="block font-body text-xs font-medium text-text-mid mb-1">
             How long?
           </label>
           <input
@@ -108,12 +107,12 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
             placeholder="e.g. 3 days, 1 week"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className={inputClasses}
             disabled={disabled}
           />
         </div>
         <div>
-          <label htmlFor="airline" className="block text-xs font-medium text-gray-600 mb-1">
+          <label htmlFor="airline" className="block font-body text-xs font-medium text-text-mid mb-1">
             Airline preference
           </label>
           <input
@@ -122,12 +121,12 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
             value={airline}
             onChange={(e) => setAirline(e.target.value)}
             placeholder="e.g. Delta, United, any"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className={inputClasses}
             disabled={disabled}
           />
         </div>
         <div>
-          <label htmlFor="stay" className="block text-xs font-medium text-gray-600 mb-1">
+          <label htmlFor="stay" className="block font-body text-xs font-medium text-text-mid mb-1">
             Stay preference
           </label>
           <input
@@ -136,7 +135,7 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
             value={stayType}
             onChange={(e) => setStayType(e.target.value)}
             placeholder="e.g. hotel, Airbnb, hostel"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className={inputClasses}
             disabled={disabled}
           />
         </div>
@@ -144,7 +143,7 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <div>
-          <label htmlFor="budget" className="block text-xs font-medium text-gray-600 mb-1">
+          <label htmlFor="budget" className="block font-body text-xs font-medium text-text-mid mb-1">
             Budget ($)
           </label>
           <input
@@ -155,12 +154,12 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
             placeholder="No limit"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className={inputClasses}
             disabled={disabled}
           />
         </div>
         <div>
-          <label htmlFor="notes" className="block text-xs font-medium text-gray-600 mb-1">
+          <label htmlFor="notes" className="block font-body text-xs font-medium text-text-mid mb-1">
             Anything else?
           </label>
           <div className="flex gap-2">
@@ -170,7 +169,7 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. business class, pet-friendly"
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className={`flex-1 ${inputClasses}`}
               disabled={disabled}
             />
             <VoiceInputButton onResult={handleVoiceResult} disabled={disabled} />
@@ -178,14 +177,14 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-400 hidden sm:block">
+      <div className="flex items-center justify-between gap-3 pt-3 border-t border-border-light">
+        <p className="text-xs text-text-ghost font-body font-light hidden sm:block">
           Leave any field blank and the agents will figure out the best options for you.
         </p>
         <button
           type="submit"
           disabled={disabled || !canSubmit}
-          className="w-full sm:w-auto px-5 py-3 lg:py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 active:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-touch"
+          className="w-full sm:w-auto px-6 py-3 lg:py-2.5 bg-contrast text-paper font-ui text-xs font-bold uppercase tracking-[0.1em] hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed btn-transition min-h-touch"
         >
           Plan Trip
         </button>

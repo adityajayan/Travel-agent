@@ -64,10 +64,10 @@ export default function VoiceInputButton({ onResult, disabled }: VoiceInputButto
       onClick={toggle}
       disabled={disabled}
       aria-label={listening ? "Stop voice input" : "Start voice input"}
-      className={`p-2.5 rounded-lg border transition-colors ${
+      className={`p-2.5 border-2 btn-transition ${
         listening
-          ? "bg-red-50 border-red-300 text-red-600"
-          : "bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100"
+          ? "bg-accent-soft border-accent text-accent"
+          : "bg-paper border-border-heavy text-text-mid hover:bg-paper-elevated"
       } disabled:opacity-50 disabled:cursor-not-allowed`}
     >
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

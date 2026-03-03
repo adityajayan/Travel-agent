@@ -38,9 +38,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   };
 
   const variantStyles: Record<string, string> = {
-    error: "bg-red-600",
-    success: "bg-green-600",
-    info: "bg-blue-600",
+    error: "bg-accent text-white",
+    success: "bg-contrast text-paper",
+    info: "bg-contrast text-paper",
   };
 
   return (
@@ -50,7 +50,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`${variantStyles[msg.variant]} text-white text-sm px-4 py-3 rounded-lg shadow-lg flex items-center justify-between gap-3 animate-slide-up`}
+            className={`${variantStyles[msg.variant]} text-sm px-4 py-3 shadow-hard-sm flex items-center justify-between gap-3 animate-slide-up font-body`}
           >
             <span>{msg.text}</span>
             <button

@@ -29,20 +29,13 @@ const domainLabels: Record<string, string> = {
   activity: "Activity",
 };
 
-const domainColors: Record<string, { bg: string; border: string; icon: string }> = {
-  flight: { bg: "bg-blue-50", border: "border-blue-200", icon: "text-blue-600" },
-  hotel: { bg: "bg-purple-50", border: "border-purple-200", icon: "text-purple-600" },
-  transport: { bg: "bg-orange-50", border: "border-orange-200", icon: "text-orange-600" },
-  activity: { bg: "bg-teal-50", border: "border-teal-200", icon: "text-teal-600" },
-};
-
-const statusConfig: Record<string, { label: string; color: string }> = {
-  pending: { label: "Pending", color: "bg-yellow-100 text-yellow-700" },
-  running: { label: "Running", color: "bg-blue-100 text-blue-700" },
-  complete: { label: "Complete", color: "bg-green-100 text-green-700" },
-  completed: { label: "Complete", color: "bg-green-100 text-green-700" },
-  failed: { label: "Failed", color: "bg-red-100 text-red-700" },
-  cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-600" },
+const statusConfig: Record<string, { label: string; style: string }> = {
+  pending: { label: "Pending", style: "border-border-light text-text-ghost" },
+  running: { label: "Running", style: "border-accent-border text-accent" },
+  complete: { label: "Complete", style: "border-success-border text-success" },
+  completed: { label: "Complete", style: "border-success-border text-success" },
+  failed: { label: "Failed", style: "border-accent text-accent" },
+  cancelled: { label: "Cancelled", style: "border-border-light text-text-ghost" },
 };
 
 export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) {
@@ -60,7 +53,6 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
     });
   };
 
-  // Group bookings by domain for cost breakdown
   const costByDomain: Record<string, number> = {};
   for (const b of bookings) {
     costByDomain[b.domain] = (costByDomain[b.domain] || 0) + b.amount;
@@ -69,15 +61,15 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
   const canCancel = trip.status === "pending" || trip.status === "running";
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white border-2 border-border-heavy overflow-hidden">
       {/* Header */}
-      <div className="p-6 border-b border-gray-100">
+      <div className="p-6 border-b border-border-light">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             {onBack && (
               <button
                 onClick={onBack}
-                className="text-xs text-gray-500 hover:text-gray-700 mb-2 flex items-center gap-1 min-h-touch active:text-gray-900"
+                className="font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] text-text-muted hover:text-contrast mb-3 flex items-center gap-1 min-h-touch btn-transition"
               >
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -85,17 +77,17 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
                 Back to timeline
               </button>
             )}
-            <h2 className="text-lg font-semibold text-gray-900">{trip.goal}</h2>
-            <p className="text-xs text-gray-400 mt-1">Created {formatDate(trip.created_at)}</p>
+            <h2 className="font-display text-xl font-medium text-contrast">{trip.goal}</h2>
+            <p className="font-body text-[0.62rem] text-text-ghost mt-1">Created {formatDate(trip.created_at)}</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
+            <span className={`px-2.5 py-0.5 border-[1.5px] font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] ${st.style}`}>
               {st.label}
             </span>
             {canCancel && onCancel && (
               <button
                 onClick={() => onCancel(trip.id)}
-                className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-3 py-2 rounded-md hover:bg-red-50 active:bg-red-100 transition-colors min-h-touch"
+                className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-text-muted border-2 border-border-light px-3 py-2 hover:border-border-heavy hover:text-contrast btn-transition min-h-touch"
               >
                 Cancel Trip
               </button>
@@ -103,30 +95,26 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
           </div>
         </div>
 
-        {/* Cost summary bar */}
+        {/* Cost summary — inverted bar */}
         {trip.total_spent != null && trip.total_spent > 0 && (
-          <div className="flex items-center gap-4 mt-3">
+          <div className="bg-contrast p-4 -mx-6 -mb-6 mt-4 flex items-center gap-6">
             <div>
-              <p className="text-xs text-gray-500">Total Cost</p>
-              <p className="text-xl font-bold text-gray-900">${trip.total_spent.toFixed(2)}</p>
+              <p className="font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] text-white/50">Total Cost</p>
+              <p className="font-display text-2xl text-white">${trip.total_spent.toFixed(2)}</p>
             </div>
             {trip.total_budget != null && (
               <div>
-                <p className="text-xs text-gray-500">Budget</p>
-                <p className="text-xl font-bold text-gray-400">${trip.total_budget.toFixed(0)}</p>
+                <p className="font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] text-white/50">Budget</p>
+                <p className="font-display text-2xl text-white/40">${trip.total_budget.toFixed(0)}</p>
               </div>
             )}
-            {/* Per-domain breakdown pills */}
             <div className="flex-1 flex flex-wrap gap-2 justify-end">
-              {Object.entries(costByDomain).map(([domain, total]) => {
-                const dc = domainColors[domain] || domainColors.activity;
-                return (
-                  <span key={domain} className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs ${dc.bg} ${dc.border} border`}>
-                    <span className={`font-medium ${dc.icon}`}>{domainLabels[domain] || domain}</span>
-                    <span className="text-gray-600">${total.toFixed(0)}</span>
-                  </span>
-                );
-              })}
+              {Object.entries(costByDomain).map(([domain, total]) => (
+                <span key={domain} className="inline-flex items-center gap-1 px-2 py-1 border border-white/15 text-xs">
+                  <span className="font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] text-white/70">{domainLabels[domain] || domain}</span>
+                  <span className="text-white/50 font-body">${total.toFixed(0)}</span>
+                </span>
+              ))}
             </div>
           </div>
         )}
@@ -134,50 +122,47 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
 
       {/* Narrative */}
       {trip.summary_text && (
-        <div className="p-6 border-b border-gray-100">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Trip Summary</h3>
-          <div className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+        <div className="p-6 border-b border-border-light">
+          <p className="eyebrow mb-2">Trip Summary</p>
+          <div className="font-body text-sm text-text-muted font-light whitespace-pre-wrap leading-relaxed">
             {trip.summary_text}
           </div>
         </div>
       )}
 
-      {/* Bookings */}
+      {/* Bookings — magazine grid */}
       {bookings.length > 0 && (
         <div className="p-6">
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Bookings ({bookings.length})</h3>
-          <div className="space-y-3">
-            {bookings.map((booking, idx) => {
-              const dc = domainColors[booking.domain] || domainColors.activity;
-              return (
-                <div key={idx} className={`rounded-lg border ${dc.border} ${dc.bg} p-4`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-sm font-medium ${dc.icon}`}>
-                      {domainLabels[booking.domain] || booking.domain}
-                    </span>
-                    <span className="text-sm font-bold text-gray-900">${booking.amount.toFixed(2)}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                    {Object.entries(booking.details).map(([key, value]) => (
-                      <div key={key} className="text-xs">
-                        <span className="text-gray-500 capitalize">{key.replace(/_/g, " ")}: </span>
-                        <span className="text-gray-700 font-medium">{String(value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {booking.provider && (
-                    <p className="text-xs text-gray-400 mt-2">Provider: {booking.provider}</p>
-                  )}
+          <p className="eyebrow mb-3">Bookings ({bookings.length})</p>
+          <div className="border-2 border-border-heavy divide-y divide-border-light">
+            {bookings.map((booking, idx) => (
+              <div key={idx} className="p-4 hover:bg-paper-elevated btn-transition">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent">
+                    {domainLabels[booking.domain] || booking.domain}
+                  </span>
+                  <span className="font-display text-lg text-contrast">${booking.amount.toFixed(2)}</span>
                 </div>
-              );
-            })}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  {Object.entries(booking.details).map(([key, value]) => (
+                    <div key={key} className="text-xs font-body">
+                      <span className="text-text-muted capitalize">{key.replace(/_/g, " ")}: </span>
+                      <span className="text-text-mid font-medium">{String(value)}</span>
+                    </div>
+                  ))}
+                </div>
+                {booking.provider && (
+                  <p className="font-body text-[0.62rem] text-text-ghost mt-2">via {booking.provider}</p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {/* Empty state */}
       {!trip.summary_text && bookings.length === 0 && trip.status !== "running" && trip.status !== "pending" && (
-        <div className="p-6 text-center text-gray-400 text-sm">
+        <div className="p-6 text-center text-text-ghost font-body text-sm">
           No booking details available for this trip.
         </div>
       )}

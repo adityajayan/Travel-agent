@@ -51,7 +51,7 @@ export default function BottomNav({ activeTab, onTabChange, tripCount, hasActive
   ];
 
   return (
-    <nav className="btm-nav fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 lg:hidden safe-area-bottom">
+    <nav className="btm-nav fixed bottom-0 left-0 right-0 z-50 bg-paper border-t-2 border-border-heavy lg:hidden safe-area-bottom" style={{ backdropFilter: "blur(16px)", backgroundColor: "rgba(248, 245, 239, 0.9)" }}>
       <div className="flex items-stretch justify-around h-full">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -59,24 +59,24 @@ export default function BottomNav({ activeTab, onTabChange, tripCount, hasActive
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-touch relative transition-colors active:bg-gray-100 ${
-                isActive ? "text-primary-600" : "text-gray-400"
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-touch relative btn-transition ${
+                isActive ? "text-contrast" : "text-text-ghost"
               }`}
             >
               <div className="relative">
                 {tab.icon}
                 {tab.badge != null && tab.badge > 0 && (
-                  <span className="absolute -top-1 -right-1.5 h-4 min-w-[1rem] flex items-center justify-center rounded-full bg-primary-500 text-white text-[10px] font-bold px-1">
+                  <span className="absolute -top-1 -right-1.5 h-4 min-w-[1rem] flex items-center justify-center bg-contrast text-paper text-[10px] font-ui font-bold px-1">
                     {tab.badge > 99 ? "99+" : tab.badge}
                   </span>
                 )}
                 {tab.dot && (
-                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 animate-pulse-dot" />
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-accent animate-pulse-dot" />
                 )}
               </div>
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <span className="font-ui text-[10px] font-semibold uppercase tracking-[0.05em]">{tab.label}</span>
               {isActive && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-primary-500" />
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] w-8 bg-contrast" />
               )}
             </button>
           );
