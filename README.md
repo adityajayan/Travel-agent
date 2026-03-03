@@ -39,6 +39,16 @@ paste a valid JWT token in the login form that appears in the frontend.
 
 ---
 
+## Design System
+
+The frontend follows the **Bold Editorial** design system. The canonical specification lives at:
+
+→ [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md)
+
+All UI components, pages, and visual work must conform to this document. When the design system and any component implementation disagree, the design system wins. If you need to change the visual direction, update `docs/DESIGN_SYSTEM.md` first — then propagate changes to the code.
+
+---
+
 ## Repository Layout
 
 ```
