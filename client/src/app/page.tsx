@@ -195,7 +195,6 @@ export default function Home() {
   // ── Swipe gesture: swipe right from left edge navigates back ─────────────
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
-    // Only register if starting near the left edge (<30px)
     if (touch.clientX < 30) {
       touchStartRef.current = { x: touch.clientX, y: touch.clientY };
     }
@@ -208,9 +207,7 @@ export default function Home() {
     const dy = Math.abs(touch.clientY - touchStartRef.current.y);
     touchStartRef.current = null;
 
-    // Swipe right at least 80px, mostly horizontal
     if (dx > 80 && dy < dx * 0.5) {
-      // Navigate "back" depending on current view
       if (view === "detail") {
         setView("timeline");
       } else if (view === "settings") {
@@ -227,8 +224,13 @@ export default function Home() {
     return (
       <main className="max-w-4xl mx-auto px-4 py-8 safe-area-x">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-primary-700">Travel Agent</h1>
-          <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-contrast flex items-center justify-center">
+              <span className="font-display text-white text-lg font-medium">C</span>
+            </div>
+            <span className="font-ui text-[0.9rem] font-bold uppercase tracking-[0.1em] text-contrast">Concierge</span>
+          </div>
+          <p className="text-text-muted mt-3 font-body text-sm font-light">Tell us what you want. We&apos;ll handle everything.</p>
         </header>
         <LoginForm />
       </main>
@@ -240,23 +242,27 @@ export default function Home() {
     return (
       <main className="max-w-4xl mx-auto px-4 py-8 safe-area-x">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-primary-700">Travel Agent</h1>
-          <p className="text-gray-500 mt-1">AI-powered travel planning assistant</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-contrast flex items-center justify-center">
+              <span className="font-display text-white text-lg font-medium">C</span>
+            </div>
+            <span className="font-ui text-[0.9rem] font-bold uppercase tracking-[0.1em] text-contrast">Concierge</span>
+          </div>
         </header>
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-          <div className="text-2xl mb-3">&#x26A0;&#xFE0F;</div>
-          <h2 className="text-lg font-semibold text-amber-800 mb-2">Backend Not Running</h2>
-          <p className="text-sm text-amber-700 mb-4">
+        <div className="bg-accent-soft border-2 border-accent-border p-6 text-center">
+          <p className="eyebrow justify-center mb-3">System Status</p>
+          <h2 className="font-display text-xl text-contrast mb-2">Backend Not Running</h2>
+          <p className="text-sm text-text-muted font-body font-light mb-4">
             The backend server is not reachable. Make sure it&apos;s running before using the app.
           </p>
-          <pre className="bg-amber-100 rounded-lg p-3 text-xs text-left text-amber-900 overflow-x-auto mb-4">
+          <pre className="bg-paper-elevated p-3 text-xs text-left text-text-mid overflow-x-auto mb-4 border border-border-light font-mono">
 {`# In a separate terminal, from the project root:
 pip install -r requirements.txt
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
           </pre>
           <button
             onClick={() => apiClient.checkAuth().then(setAuthStatus)}
-            className="px-4 py-2.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 active:bg-amber-800 transition-colors min-h-touch"
+            className="px-6 py-3 bg-contrast text-paper font-ui text-xs font-bold uppercase tracking-[0.1em] hover:bg-accent btn-transition min-h-touch"
           >
             Retry Connection
           </button>
@@ -272,19 +278,24 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Header — compact on mobile */}
-      <header className="mb-6 lg:mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-primary-700">Travel Agent</h1>
-          <p className="text-gray-500 mt-0.5 text-xs lg:text-sm">AI-powered travel planning assistant</p>
+      {/* ── Navigation header ──────────────────────────────────────────────── */}
+      <header className="mb-6 lg:mb-8 flex items-center justify-between border-b-2 border-border-heavy pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-contrast flex items-center justify-center">
+            <span className="font-display text-paper text-lg font-medium">C</span>
+          </div>
+          <div>
+            <span className="font-ui text-[0.9rem] font-bold uppercase tracking-[0.1em] text-contrast block leading-tight">Concierge</span>
+            <span className="text-text-ghost font-body text-[0.62rem] block">Travel, handled for you</span>
+          </div>
         </div>
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="hidden lg:flex items-center gap-3">
           <button
             onClick={() => setView(view === "settings" ? "timeline" : "settings")}
-            className={`text-xs border px-3 py-1.5 rounded-lg transition-colors ${
+            className={`font-ui text-xs font-semibold uppercase tracking-[0.08em] px-4 py-2 border-2 btn-transition ${
               view === "settings"
-                ? "bg-primary-50 border-primary-200 text-primary-700"
-                : "text-gray-500 hover:text-gray-700 border-gray-300"
+                ? "bg-contrast text-paper border-contrast"
+                : "text-text-mid hover:text-contrast border-border-heavy hover:bg-contrast hover:text-paper"
             }`}
           >
             Settings
@@ -292,24 +303,23 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
           {isAuthenticated && (
             <button
               onClick={logout}
-              className="text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg transition-colors"
+              className="font-ui text-xs font-semibold uppercase tracking-[0.08em] text-text-muted hover:text-contrast border-2 border-border-light hover:border-border-heavy px-4 py-2 btn-transition"
             >
               Sign Out
             </button>
           )}
         </div>
-        {/* Mobile: just sign out if authenticated */}
         {isAuthenticated && (
           <button
             onClick={logout}
-            className="lg:hidden text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg transition-colors min-h-touch flex items-center"
+            className="lg:hidden font-ui text-xs font-semibold uppercase tracking-[0.08em] text-text-muted border-2 border-border-light px-3 py-2 btn-transition min-h-touch flex items-center"
           >
             Sign Out
           </button>
         )}
       </header>
 
-      {/* ── Desktop layout (unchanged) ──────────────────────────────────────── */}
+      {/* ── Desktop layout ──────────────────────────────────────────────────── */}
       <div className="hidden lg:block">
         {view === "settings" ? (
           <Settings onClose={() => setView("timeline")} />
@@ -335,14 +345,14 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
               )}
 
               {activeTrip && view === "timeline" && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white border-2 border-border-heavy p-6 card-hover-bar">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">{activeTrip.goal}</h2>
+                    <h2 className="font-display text-xl font-medium">{activeTrip.goal}</h2>
                     <div className="flex items-center gap-2">
                       {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
                         <button
                           onClick={() => setView("detail")}
-                          className="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 px-2 py-1 rounded-md"
+                          className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-accent border-2 border-accent-border px-3 py-1.5 hover:bg-accent-soft btn-transition"
                         >
                           View Details
                         </button>
@@ -350,7 +360,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                       {(activeTrip.status === "pending" || activeTrip.status === "running") && (
                         <button
                           onClick={() => handleCancelTrip(activeTrip.id)}
-                          className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1 rounded-md"
+                          className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-text-muted border-2 border-border-light px-3 py-1.5 hover:border-border-heavy btn-transition"
                         >
                           Cancel
                         </button>
@@ -373,7 +383,6 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
 
       {/* ── Mobile layout (tab-driven) ──────────────────────────────────────── */}
       <div className="lg:hidden">
-        {/* Trips tab */}
         {mobileTab === "trips" && (
           <TripList
             trips={trips}
@@ -383,12 +392,10 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
           />
         )}
 
-        {/* Plan tab */}
         {mobileTab === "plan" && (
           <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
         )}
 
-        {/* Live / Timeline tab */}
         {mobileTab === "timeline" && (
           <>
             {activeTrip && view === "detail" && (
@@ -400,14 +407,14 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
             )}
 
             {activeTrip && view === "timeline" && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="bg-white border-2 border-border-heavy p-4 card-hover-bar">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-base font-semibold truncate flex-1 mr-2">{activeTrip.goal}</h2>
+                  <h2 className="font-display text-base font-medium truncate flex-1 mr-2">{activeTrip.goal}</h2>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
                       <button
                         onClick={() => setView("detail")}
-                        className="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 px-2 py-1.5 rounded-md min-h-touch flex items-center"
+                        className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-accent border-2 border-accent-border px-2 py-1.5 btn-transition min-h-touch flex items-center"
                       >
                         Details
                       </button>
@@ -415,7 +422,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                     {(activeTrip.status === "pending" || activeTrip.status === "running") && (
                       <button
                         onClick={() => handleCancelTrip(activeTrip.id)}
-                        className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-1.5 rounded-md min-h-touch flex items-center"
+                        className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-text-muted border-2 border-border-light px-2 py-1.5 btn-transition min-h-touch flex items-center"
                       >
                         Cancel
                       </button>
@@ -433,11 +440,11 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
             )}
 
             {!activeTrip && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-                <p className="text-sm text-gray-400">No active trip</p>
+              <div className="bg-white border-2 border-border-heavy p-8 text-center">
+                <p className="text-sm text-text-ghost font-body">No active trip</p>
                 <button
                   onClick={() => setMobileTab("plan")}
-                  className="mt-3 text-xs text-primary-600 font-medium min-h-touch flex items-center justify-center mx-auto"
+                  className="mt-3 font-ui text-xs font-bold uppercase tracking-[0.1em] text-accent min-h-touch flex items-center justify-center mx-auto"
                 >
                   Plan a new trip
                 </button>
@@ -446,7 +453,6 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
           </>
         )}
 
-        {/* Settings tab */}
         {mobileTab === "settings" && (
           <Settings onClose={() => { setView("timeline"); setMobileTab("plan"); }} />
         )}
@@ -467,21 +473,21 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
 }
 
 function StatusBadge({ status, connected }: { status: string; connected: boolean }) {
-  const colors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-700",
-    running: "bg-blue-100 text-blue-700",
-    completed: "bg-green-100 text-green-700",
-    complete: "bg-green-100 text-green-700",
-    failed: "bg-red-100 text-red-700",
-    cancelled: "bg-gray-100 text-gray-600",
+  const styles: Record<string, string> = {
+    pending: "border-border-light text-text-ghost",
+    running: "border-accent-border text-accent",
+    completed: "border-success-border text-success",
+    complete: "border-success-border text-success",
+    failed: "border-accent text-accent",
+    cancelled: "border-border-light text-text-ghost",
   };
 
   return (
     <div className="flex items-center gap-2">
       {connected && status === "running" && (
-        <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse-dot" />
+        <span className="h-2 w-2 bg-accent animate-pulse-dot" />
       )}
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] ?? "bg-gray-100 text-gray-600"}`}>
+      <span className={`px-2.5 py-0.5 border-[1.5px] font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] ${styles[status] ?? "border-border-light text-text-ghost"}`}>
         {status}
       </span>
     </div>
