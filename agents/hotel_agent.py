@@ -2,11 +2,11 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.approval_gate import ApprovalGate
+from core.approval_gate import ApprovalGate, PriceChangedError
 from core.audit_logger import AuditLogger
 from agents.base_agent import BaseAgent
 from providers.base import BaseHotelProvider
-from providers.mock.hotel_provider import MockHotelProvider
+from providers.factory import get_provider
 from tools.planning_tools import (
     SUGGEST_ALTERNATIVE_DATES_DEF,
     SUGGEST_TRIP_OPTIONS_DEF,
@@ -64,10 +64,11 @@ class HotelAgent(BaseAgent):
         db: AsyncSession,
         audit_logger: AuditLogger,
         approval_gate: ApprovalGate,
-        provider: Optional[BaseHotelProvider] = None,
+        provider=None,
         policy_engine: Optional[object] = None,
     ):
-        self.provider = provider or MockHotelProvider()
+        self.provider = provider or get_provider("hotel")
+        approval_gate._provider = self.provider
         registry = ToolRegistry()
         registry.register(SEARCH_HOTELS_DEF, self._search_hotels)
         registry.register(BOOK_HOTEL_DEF, self._book_hotel)

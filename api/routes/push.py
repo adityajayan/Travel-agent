@@ -8,9 +8,10 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from core.auth import CurrentUser, get_current_user
 from core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,10 @@ class SendNotificationRequest(BaseModel):
 
 
 @router.post("/subscribe")
-async def subscribe(sub: PushSubscription):
+async def subscribe(
+    sub: PushSubscription,
+    user: CurrentUser = Depends(get_current_user),
+):
     """Register a push subscription."""
     _subscriptions[sub.endpoint] = sub.model_dump()
     logger.info("Push subscription registered: %s...", sub.endpoint[:50])
@@ -47,14 +51,20 @@ async def subscribe(sub: PushSubscription):
 
 
 @router.post("/unsubscribe")
-async def unsubscribe(req: UnsubscribeRequest):
+async def unsubscribe(
+    req: UnsubscribeRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
     """Remove a push subscription."""
     _subscriptions.pop(req.endpoint, None)
     return {"status": "unsubscribed"}
 
 
 @router.post("/send")
-async def send_notification(req: SendNotificationRequest):
+async def send_notification(
+    req: SendNotificationRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
     """Send a push notification.
 
     Requires VAPID_PRIVATE_KEY and VAPID_CONTACT_EMAIL in env.

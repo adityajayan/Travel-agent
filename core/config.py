@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     hertz_client_secret: str = ""
     viator_api_key: str = ""
 
+    # M8 — Fallback providers
+    duffel_api_token: str = ""
+    getyourguide_api_key: str = ""
+
+    # M8 — Redis cache
+    redis_url: str = ""
+
+    # M8 — Price re-verification threshold (percentage)
+    price_change_threshold_pct: float = 5.0
+
     # M6 — Auth
     auth_provider_url: str = ""
     auth_secret: str = ""

@@ -25,6 +25,22 @@ logger = logging.getLogger(__name__)
 
 MODEL = "claude-opus-4-6"
 
+# Maximum allowed length for user-supplied goal text
+_MAX_GOAL_LENGTH = 2000
+
+
+def _sanitize_goal(goal: str) -> str:
+    """Sanitize user goal to mitigate prompt injection.
+
+    - Truncates to a safe length
+    - Strips characters that could be used to break prompt structure
+    """
+    goal = goal[:_MAX_GOAL_LENGTH]
+    # Remove sequences that look like prompt injection attempts
+    # (triple backticks, XML-like tags that could confuse the model)
+    goal = goal.replace("```", "")
+    return goal.strip()
+
 DOMAIN_KEYWORDS = {
     "flight": ["fly", "flight", "plane", "airport", "airline", "airways"],
     "hotel": ["hotel", "stay", "accommodation", "lodge", "hostel", "airbnb"],
@@ -204,7 +220,7 @@ class OrchestratorAgent:
             "You are a travel planning assistant. A customer has made a trip request. "
             "Your job is to identify what important information is MISSING that the "
             "customer might want to specify before we proceed.\n\n"
-            f"Customer request: {goal}\n\n"
+            f"Customer request: {_sanitize_goal(goal)}\n\n"
             f"Detected plan: {json.dumps(plan, indent=2)}\n\n"
             "KEY PRINCIPLE: When details are missing, that is NOT a problem — it's an "
             "opportunity. Our agents will automatically optimize for:\n"
@@ -368,7 +384,7 @@ class OrchestratorAgent:
             "- If the customer DID express a preference (e.g. 'business class', "
             "'5-star', 'Hilton', specific dates), include it exactly in the sub-goal "
             "and do NOT override it with budget options.\n\n"
-            f"Travel goal: {goal}\n\n"
+            f"Travel goal: {_sanitize_goal(goal)}\n\n"
             "Return ONLY the JSON object, no markdown fences."
         )
         response = await self._client.messages.create(

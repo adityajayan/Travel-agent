@@ -1,5 +1,8 @@
-"""Base provider ABCs for all travel domains (M5)."""
+"""Base provider ABCs for all travel domains (M5, M8)."""
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
+
+from providers.schemas import CancellationPolicy, HoldResult, PriceVerification
 
 
 class BaseProvider(ABC):
@@ -20,6 +23,40 @@ class BaseProvider(ABC):
     @abstractmethod
     async def cancel(self, booking_reference: str) -> dict:
         pass
+
+    async def hold_fare(self, item_id: str) -> HoldResult:
+        """Attempt to hold/lock a fare. Default: not supported."""
+        return HoldResult(
+            hold_id="",
+            item_id=item_id,
+            verified_price=0.0,
+            expires_at=datetime.now(timezone.utc),
+            provider="",
+            supported=False,
+        )
+
+    async def verify_price(self, item_id: str, original_price: float) -> PriceVerification:
+        """Re-verify current price for an item. Default: returns unchanged."""
+        now = datetime.now(timezone.utc)
+        return PriceVerification(
+            item_id=item_id,
+            current_price=original_price,
+            original_price=original_price,
+            price_changed=False,
+            pct_change=0.0,
+            verified_at=now,
+        )
+
+    async def get_cancellation_policy(self, booking_reference: str) -> CancellationPolicy:
+        """Get cancellation terms for a booking. Default: non-refundable."""
+        return CancellationPolicy(
+            booking_reference=booking_reference,
+            refundable=False,
+            refund_amount=0.0,
+            cancellation_fee=0.0,
+            policy_text="No refund policy available.",
+            provider="",
+        )
 
 
 class BaseFlightProvider(BaseProvider):

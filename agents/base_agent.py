@@ -5,7 +5,7 @@ from anthropic import AsyncAnthropic
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.approval_gate import ApprovalGate, ApprovalRequiredError, ApprovalRejectedError
+from core.approval_gate import ApprovalGate, ApprovalRequiredError, ApprovalRejectedError, PriceChangedError
 from core.audit_logger import AuditLogger
 from core.config import settings
 from db.models import Trip
@@ -220,6 +220,19 @@ class BaseAgent:
                 {"status": "pending_approval", "approval_id": exc.approval_id},
             )
             return f"PENDING_APPROVAL:{exc.approval_id}"
+
+        except PriceChangedError as exc:
+            await self.audit_logger.log_tool_call(
+                self.trip_id, self.name, tool_name, tool_input,
+                {
+                    "status": "price_changed",
+                    "approval_id": exc.approval_id,
+                    "original_price": exc.original_price,
+                    "current_price": exc.current_price,
+                    "pct_change": exc.pct_change,
+                },
+            )
+            return f"PRICE_CHANGED:{exc}"
 
         except ApprovalRejectedError as exc:
             await self.audit_logger.log_tool_call(

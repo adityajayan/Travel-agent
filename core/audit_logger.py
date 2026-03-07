@@ -1,4 +1,4 @@
-import json
+import copy
 import uuid
 from typing import TYPE_CHECKING, Optional
 
@@ -9,6 +9,31 @@ from db.models import Booking, ToolCall, Trip
 
 if TYPE_CHECKING:
     from core.policy_engine import PolicyEvalResult, PolicyViolationDetail
+
+# Keys whose values must be redacted before persisting to audit logs
+_SENSITIVE_KEYS = frozenset({
+    "payment_token", "credit_card", "card_number", "cvv", "ssn",
+    "password", "secret", "api_key", "access_token", "client_secret",
+})
+
+
+def _redact(data: dict) -> dict:
+    """Deep-copy a dict and replace sensitive values with '[REDACTED]'."""
+    out = copy.deepcopy(data)
+
+    def _walk(obj):
+        if isinstance(obj, dict):
+            for key in list(obj.keys()):
+                if key.lower() in _SENSITIVE_KEYS:
+                    obj[key] = "[REDACTED]"
+                else:
+                    _walk(obj[key])
+        elif isinstance(obj, list):
+            for item in obj:
+                _walk(item)
+
+    _walk(out)
+    return out
 
 
 class AuditLogger:
@@ -25,14 +50,14 @@ class AuditLogger:
         input_data: dict,
         output_data: dict,
     ) -> ToolCall:
-        """Append a ToolCall record. Never updates existing records."""
+        """Append a ToolCall record. Never updates existing records. Sensitive values are redacted."""
         record = ToolCall(
             id=str(uuid.uuid4()),
             trip_id=trip_id,
             agent_name=agent_name,
             tool_name=tool_name,
-            input=input_data,
-            output=output_data,
+            input=_redact(input_data),
+            output=_redact(output_data),
         )
         self.db.add(record)
         await self.db.commit()
@@ -46,13 +71,13 @@ class AuditLogger:
         details: dict,
         amount: float,
     ) -> Booking:
-        """Append a Booking record and atomically increment Trip.total_spent."""
+        """Append a Booking record and atomically increment Trip.total_spent. Sensitive values are redacted."""
         booking = Booking(
             id=str(uuid.uuid4()),
             trip_id=trip_id,
             domain=domain,
             provider=provider,
-            details=details,
+            details=_redact(details),
             amount=amount,
         )
         self.db.add(booking)

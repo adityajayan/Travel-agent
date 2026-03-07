@@ -2,11 +2,11 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.approval_gate import ApprovalGate
+from core.approval_gate import ApprovalGate, PriceChangedError
 from core.audit_logger import AuditLogger
 from agents.base_agent import BaseAgent
 from providers.base import BaseActivityProvider
-from providers.mock.activity_provider import MockActivityProvider
+from providers.factory import get_provider
 from tools.registry import ToolRegistry
 
 SEARCH_ACTIVITIES_DEF = {
@@ -57,10 +57,11 @@ class ActivityAgent(BaseAgent):
         db: AsyncSession,
         audit_logger: AuditLogger,
         approval_gate: ApprovalGate,
-        provider: Optional[BaseActivityProvider] = None,
+        provider=None,
         policy_engine: Optional[object] = None,
     ):
-        self.provider = provider or MockActivityProvider()
+        self.provider = provider or get_provider("activity")
+        approval_gate._provider = self.provider
         registry = ToolRegistry()
         registry.register(SEARCH_ACTIVITIES_DEF, self._search_activities)
         registry.register(BOOK_ACTIVITY_DEF, self._book_activity)

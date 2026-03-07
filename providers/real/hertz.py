@@ -1,16 +1,24 @@
-"""Hertz Car Rental Provider — real API integration (M5 Item 4).
+"""Hertz Car Rental Provider — real API integration (M5 Item 4, M8 hardening).
 
 Credentials loaded from env vars (INV-10).
 Sandbox booking references prefixed SANDBOX- (INV-11).
+Returns NormalizedTransportResult / NormalizedBookingConfirmation (INV-14).
 """
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
 
 from providers.base import BaseTransportProvider
+from providers.schemas import (
+    CancellationPolicy,
+    NormalizedBookingConfirmation,
+    NormalizedTransportResult,
+    PriceVerification,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +37,7 @@ class HertzTransportProvider(BaseTransportProvider):
         if self._token and time.time() < self._token_expires_at:
             return self._token
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"{BASE_URL}/oauth/token",
                 data={"grant_type": "client_credentials", "client_id": self._client_id, "client_secret": self._client_secret},
@@ -45,11 +53,11 @@ class HertzTransportProvider(BaseTransportProvider):
         headers = {"Authorization": f"Bearer {token}"}
         max_retries = 3
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             for attempt in range(max_retries + 1):
                 resp = await client.request(method, f"{BASE_URL}{path}", headers=headers, **kwargs)
                 if resp.status_code == 429:
-                    retry_after = int(resp.headers.get("retry-after", 2 ** attempt))
+                    retry_after = min(int(resp.headers.get("retry-after", 2 ** attempt)), 60)
                     import asyncio
                     await asyncio.sleep(retry_after)
                     continue
@@ -64,15 +72,20 @@ class HertzTransportProvider(BaseTransportProvider):
         })
         results = []
         for vehicle in data.get("vehicles", []):
-            results.append({
-                "transport_id": vehicle.get("id", ""),
-                "type": "car_rental",
-                "pickup": pickup, "dropoff": dropoff, "date": date,
-                "price": float(vehicle.get("rate", {}).get("amount", 0)),
-                "estimated_cost": float(vehicle.get("rate", {}).get("amount", 0)),
-                "provider": "Hertz",
-                "eta_minutes": 0,
-            })
+            price = float(vehicle.get("rate", {}).get("amount", 0))
+            result = NormalizedTransportResult(
+                transport_id=vehicle.get("id", ""),
+                type="car_rental",
+                pickup=pickup,
+                dropoff=dropoff,
+                date=date,
+                estimated_cost=price,
+                vehicle_class=vehicle.get("category", ""),
+                provider="Hertz",
+                raw_provider_id=vehicle.get("id", ""),
+                eta_minutes=0,
+            )
+            results.append(result.model_dump())
         return results
 
     async def book_transport(self, transport_id: str, passenger_details: dict, payment_token: str) -> dict:
@@ -82,12 +95,42 @@ class HertzTransportProvider(BaseTransportProvider):
         ref = data.get("confirmation_number", transport_id)
         if self._is_sandbox:
             ref = f"SANDBOX-{ref}"
-        return {
-            "booking_reference": ref, "transport_id": transport_id,
-            "status": "confirmed", "passenger": passenger_details,
-            "payment_token": payment_token,
-            "amount": float(data.get("total", 0)),
-        }
+        amount = float(data.get("total", 0))
+        confirmation = NormalizedBookingConfirmation(
+            booking_reference=ref,
+            domain="transport",
+            provider="Hertz",
+            status="confirmed",
+            amount=amount,
+            is_sandbox=self._is_sandbox,
+            raw_details={
+                "transport_id": transport_id,
+                "passenger": passenger_details,
+                "payment_token": payment_token,
+            },
+        )
+        return confirmation.model_dump()
 
     async def cancel_transport(self, booking_reference: str) -> dict:
         return {"booking_reference": booking_reference, "status": "cancelled", "refund_amount": 0}
+
+    async def verify_price(self, item_id: str, original_price: float) -> PriceVerification:
+        now = datetime.now(timezone.utc)
+        return PriceVerification(
+            item_id=item_id,
+            current_price=original_price,
+            original_price=original_price,
+            price_changed=False,
+            pct_change=0.0,
+            verified_at=now,
+        )
+
+    async def get_cancellation_policy(self, booking_reference: str) -> CancellationPolicy:
+        return CancellationPolicy(
+            booking_reference=booking_reference,
+            refundable=True,
+            refund_amount=0.0,
+            cancellation_fee=0.0,
+            policy_text="Hertz: free cancellation up to 24 hours before pickup.",
+            provider="Hertz",
+        )

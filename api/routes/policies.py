@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from api.schemas import PolicyCreate, PolicyOut, PolicyRuleOut, PolicyRuleUpdate, PolicyUpdate
+from core.auth import CurrentUser, get_current_user
 from db.database import get_db
 from db.models import CorporatePolicy, PolicyRule
 
@@ -27,7 +28,11 @@ async def _get_policy_with_rules(policy_id: str, db: AsyncSession) -> Optional[C
 # ── Policy CRUD ───────────────────────────────────────────────────────────────
 
 @router.post("", response_model=PolicyOut, status_code=201)
-async def create_policy(body: PolicyCreate, db: AsyncSession = Depends(get_db)):
+async def create_policy(
+    body: PolicyCreate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
     # Enforce: only one active policy per org (409 if violated)
     if body.is_active:
         existing = await db.execute(
@@ -73,7 +78,11 @@ async def create_policy(body: PolicyCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("", response_model=list[PolicyOut])
-async def list_policies(org_id: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+async def list_policies(
+    org_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
     query = (
         select(CorporatePolicy)
         .options(selectinload(CorporatePolicy.rules))
@@ -86,7 +95,11 @@ async def list_policies(org_id: Optional[str] = None, db: AsyncSession = Depends
 
 
 @router.get("/{policy_id}", response_model=PolicyOut)
-async def get_policy(policy_id: str, db: AsyncSession = Depends(get_db)):
+async def get_policy(
+    policy_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
     policy = await _get_policy_with_rules(policy_id, db)
     if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
@@ -95,7 +108,10 @@ async def get_policy(policy_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.patch("/{policy_id}", response_model=PolicyOut)
 async def update_policy(
-    policy_id: str, body: PolicyUpdate, db: AsyncSession = Depends(get_db)
+    policy_id: str,
+    body: PolicyUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     result = await db.execute(
         select(CorporatePolicy).where(CorporatePolicy.id == policy_id)
@@ -130,7 +146,11 @@ async def update_policy(
 
 
 @router.delete("/{policy_id}", status_code=204)
-async def delete_policy(policy_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_policy(
+    policy_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
     """Soft delete — sets is_active=False. Existing trips referencing the policy are unaffected."""
     result = await db.execute(
         select(CorporatePolicy).where(CorporatePolicy.id == policy_id)
@@ -150,6 +170,7 @@ async def update_rule(
     rule_id: str,
     body: PolicyRuleUpdate,
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     result = await db.execute(
         select(PolicyRule).where(
