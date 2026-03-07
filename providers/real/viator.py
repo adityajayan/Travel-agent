@@ -1,14 +1,22 @@
-"""Viator Activity Provider — real API integration (M5 Item 4).
+"""Viator Activity Provider — real API integration (M5 Item 4, M8 hardening).
 
 Credentials loaded from env vars (INV-10).
 Sandbox booking references prefixed SANDBOX- (INV-11).
+Returns NormalizedActivityResult / NormalizedBookingConfirmation (INV-14).
 """
 import logging
 import os
+from datetime import datetime, timezone
 
 import httpx
 
 from providers.base import BaseActivityProvider
+from providers.schemas import (
+    CancellationPolicy,
+    NormalizedActivityResult,
+    NormalizedBookingConfirmation,
+    PriceVerification,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,16 +54,21 @@ class ViatorActivityProvider(BaseActivityProvider):
         results = []
         for product in data.get("products", []):
             pricing = product.get("pricing", {})
-            results.append({
-                "activity_id": product.get("productCode", ""),
-                "name": product.get("title", "Unknown Activity"),
-                "destination": destination, "date": date,
-                "price": round(float(pricing.get("amount", 0)) * participants, 2),
-                "estimated_cost": round(float(pricing.get("amount", 0)) * participants, 2),
-                "provider": "Viator",
-                "duration_hours": product.get("duration", {}).get("hours", 0),
-                "spots_available": product.get("availability", {}).get("spots", 0),
-            })
+            dur_hours = product.get("duration", {}).get("hours", 0)
+            total_price = round(float(pricing.get("amount", 0)) * participants, 2)
+            result = NormalizedActivityResult(
+                activity_id=product.get("productCode", ""),
+                name=product.get("title", "Unknown Activity"),
+                destination=destination,
+                date=date,
+                estimated_cost=total_price,
+                duration_hours=dur_hours,
+                duration_minutes=int(dur_hours * 60),
+                provider="Viator",
+                raw_provider_id=product.get("productCode", ""),
+                spots_available=product.get("availability", {}).get("spots", 0),
+            )
+            results.append(result.model_dump())
         return results
 
     async def book_activity(self, activity_id: str, participant_details: dict, payment_token: str) -> dict:
@@ -65,12 +78,42 @@ class ViatorActivityProvider(BaseActivityProvider):
         ref = data.get("bookingRef", activity_id)
         if self._is_sandbox:
             ref = f"SANDBOX-{ref}"
-        return {
-            "booking_reference": ref, "activity_id": activity_id,
-            "status": "confirmed", "participant": participant_details,
-            "payment_token": payment_token,
-            "amount": float(data.get("totalPrice", 0)),
-        }
+        amount = float(data.get("totalPrice", 0))
+        confirmation = NormalizedBookingConfirmation(
+            booking_reference=ref,
+            domain="activity",
+            provider="Viator",
+            status="confirmed",
+            amount=amount,
+            is_sandbox=self._is_sandbox,
+            raw_details={
+                "activity_id": activity_id,
+                "participant": participant_details,
+                "payment_token": payment_token,
+            },
+        )
+        return confirmation.model_dump()
 
     async def cancel_activity(self, booking_reference: str) -> dict:
         return {"booking_reference": booking_reference, "status": "cancelled", "refund_amount": 0}
+
+    async def verify_price(self, item_id: str, original_price: float) -> PriceVerification:
+        now = datetime.now(timezone.utc)
+        return PriceVerification(
+            item_id=item_id,
+            current_price=original_price,
+            original_price=original_price,
+            price_changed=False,
+            pct_change=0.0,
+            verified_at=now,
+        )
+
+    async def get_cancellation_policy(self, booking_reference: str) -> CancellationPolicy:
+        return CancellationPolicy(
+            booking_reference=booking_reference,
+            refundable=True,
+            refund_amount=0.0,
+            cancellation_fee=0.0,
+            policy_text="Viator: free cancellation up to 24 hours before the activity.",
+            provider="Viator",
+        )

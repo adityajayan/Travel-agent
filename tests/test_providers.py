@@ -1,4 +1,4 @@
-"""Tests for mock providers."""
+"""Tests for mock providers — updated for M8 normalized schemas."""
 import pytest
 
 from providers.mock.flight_provider import MockFlightProvider
@@ -15,8 +15,12 @@ async def test_flight_search_returns_results():
     first = results[0]
     assert first["origin"] == "JFK"
     assert first["destination"] == "CDG"
-    assert first["price"] > 0
+    assert first["estimated_cost"] > 0
     assert "flight_id" in first
+    # M8: Normalized schema fields
+    assert "cabin_class" in first
+    assert "duration_minutes" in first
+    assert "provider" in first
 
 
 @pytest.mark.asyncio
@@ -24,9 +28,8 @@ async def test_flight_booking_returns_confirmation():
     provider = MockFlightProvider()
     result = await provider.book_flight("FL001", {"name": "Alice"}, "mock-token")
     assert result["status"] == "confirmed"
-    assert result["flight_id"] == "FL001"
     assert "booking_reference" in result
-    assert result["payment_token"] == "mock-token"
+    assert result["domain"] == "flight"
 
 
 @pytest.mark.asyncio
@@ -44,7 +47,9 @@ async def test_hotel_search_returns_results():
     assert len(results) >= 1
     first = results[0]
     assert first["destination"] == "Paris"
-    assert first["price_per_night"] > 0
+    assert first["cost_per_night"] > 0
+    # M8: PolicyEngine-compatible fields
+    assert "star_rating" in first
 
 
 @pytest.mark.asyncio
@@ -52,7 +57,7 @@ async def test_hotel_booking_returns_confirmation():
     provider = MockHotelProvider()
     result = await provider.book_hotel("HTL001", {"name": "Bob"}, "mock-token")
     assert result["status"] == "confirmed"
-    assert result["hotel_id"] == "HTL001"
+    assert result["domain"] == "hotel"
 
 
 @pytest.mark.asyncio
@@ -61,6 +66,7 @@ async def test_transport_search_returns_results():
     results = await provider.search_transport("CDG Airport", "Paris Centre", "2025-06-01")
     assert len(results) >= 1
     assert results[0]["pickup"] == "CDG Airport"
+    assert results[0]["estimated_cost"] > 0
 
 
 @pytest.mark.asyncio
@@ -68,6 +74,7 @@ async def test_transport_booking_returns_confirmation():
     provider = MockTransportProvider()
     result = await provider.book_transport("TRN001", {"name": "Carol"}, "mock-token")
     assert result["status"] == "confirmed"
+    assert result["domain"] == "transport"
 
 
 @pytest.mark.asyncio
@@ -76,6 +83,7 @@ async def test_activity_search_returns_results():
     results = await provider.search_activities("Paris", "2025-06-02", participants=1)
     assert len(results) >= 1
     assert "activity_id" in results[0]
+    assert results[0]["estimated_cost"] > 0
 
 
 @pytest.mark.asyncio
@@ -83,4 +91,4 @@ async def test_activity_booking_returns_confirmation():
     provider = MockActivityProvider()
     result = await provider.book_activity("ACT001", {"name": "Dave"}, "mock-token")
     assert result["status"] == "confirmed"
-    assert result["activity_id"] == "ACT001"
+    assert result["domain"] == "activity"

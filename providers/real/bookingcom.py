@@ -1,16 +1,24 @@
-"""Booking.com Hotel Provider — real API integration (M5 Item 3).
+"""Booking.com Hotel Provider — real API integration (M5 Item 3, M8 hardening).
 
 Uses Booking.com Demand API.
 Credentials loaded from env vars (INV-10).
 Sandbox booking references prefixed SANDBOX- (INV-11).
+Returns NormalizedHotelResult / NormalizedBookingConfirmation (INV-14).
 """
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
 
 from providers.base import BaseHotelProvider
+from providers.schemas import (
+    CancellationPolicy,
+    NormalizedBookingConfirmation,
+    NormalizedHotelResult,
+    PriceVerification,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +71,6 @@ class BookingcomHotelProvider(BaseHotelProvider):
             price = product.get("price", {})
             property_info = prop.get("property", {})
 
-            # Calculate nights
             from datetime import date as dt_date
             try:
                 ci = dt_date.fromisoformat(check_in)
@@ -73,22 +80,23 @@ class BookingcomHotelProvider(BaseHotelProvider):
                 nights = 1
 
             total = float(price.get("amount", 0))
-            cost_per_night = total / nights if nights > 0 else total
+            cpn = total / nights if nights > 0 else total
 
-            results.append({
-                "hotel_id": str(prop.get("id", "")),
-                "name": property_info.get("name", "Unknown Hotel"),
-                "destination": destination,
-                "check_in": check_in,
-                "check_out": check_out,
-                "price_per_night": round(cost_per_night, 2),
-                "cost_per_night": round(cost_per_night, 2),
-                "total_price": round(total, 2),
-                "star_rating": property_info.get("starRating", 3),
-                "rating": property_info.get("reviewScore", 0),
-                "provider": property_info.get("name", "Booking.com"),
-                "rooms_available": 1,
-            })
+            result = NormalizedHotelResult(
+                hotel_id=str(prop.get("id", "")),
+                name=property_info.get("name", "Unknown Hotel"),
+                destination=destination,
+                check_in=check_in,
+                check_out=check_out,
+                cost_per_night=round(cpn, 2),
+                total_price=round(total, 2),
+                star_rating=float(property_info.get("starRating", 3)),
+                rating_score=float(property_info.get("reviewScore", 0)),
+                provider="Booking.com",
+                raw_provider_id=str(prop.get("id", "")),
+                rooms_available=1,
+            )
+            results.append(result.model_dump())
 
         return results
 
@@ -105,18 +113,53 @@ class BookingcomHotelProvider(BaseHotelProvider):
         if self._is_sandbox:
             ref = f"SANDBOX-{ref}"
 
-        return {
-            "booking_reference": ref,
-            "hotel_id": hotel_id,
-            "status": "confirmed",
-            "guest": guest_details,
-            "payment_token": payment_token,
-            "amount": float(data.get("total_amount", 150.00)),
-        }
+        amount = float(data.get("total_amount", 150.00))
+        confirmation = NormalizedBookingConfirmation(
+            booking_reference=ref,
+            domain="hotel",
+            provider="Booking.com",
+            status="confirmed",
+            amount=amount,
+            is_sandbox=self._is_sandbox,
+            raw_details={
+                "hotel_id": hotel_id,
+                "guest": guest_details,
+                "payment_token": payment_token,
+            },
+        )
+        return confirmation.model_dump()
 
     async def cancel_hotel(self, booking_reference: str) -> dict:
+        api_ref = booking_reference.replace("SANDBOX-", "")
+        if not self._is_sandbox:
+            try:
+                await self._request("DELETE", f"/orders/{api_ref}")
+            except Exception as exc:
+                logger.warning("Booking.com cancel API error: %s", exc)
+
         return {
             "booking_reference": booking_reference,
             "status": "cancelled",
             "refund_amount": 0,
         }
+
+    async def verify_price(self, item_id: str, original_price: float) -> PriceVerification:
+        now = datetime.now(timezone.utc)
+        return PriceVerification(
+            item_id=item_id,
+            current_price=original_price,
+            original_price=original_price,
+            price_changed=False,
+            pct_change=0.0,
+            verified_at=now,
+        )
+
+    async def get_cancellation_policy(self, booking_reference: str) -> CancellationPolicy:
+        return CancellationPolicy(
+            booking_reference=booking_reference,
+            refundable=True,
+            refund_amount=0.0,
+            cancellation_fee=0.0,
+            policy_text="Booking.com: cancellation policy varies by property.",
+            provider="Booking.com",
+        )

@@ -2,11 +2,11 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.approval_gate import ApprovalGate
+from core.approval_gate import ApprovalGate, PriceChangedError
 from core.audit_logger import AuditLogger
 from agents.base_agent import BaseAgent
 from providers.base import BaseTransportProvider
-from providers.mock.transport_provider import MockTransportProvider
+from providers.factory import get_provider
 from tools.registry import ToolRegistry
 
 SEARCH_TRANSPORT_DEF = {
@@ -57,10 +57,11 @@ class TransportAgent(BaseAgent):
         db: AsyncSession,
         audit_logger: AuditLogger,
         approval_gate: ApprovalGate,
-        provider: Optional[BaseTransportProvider] = None,
+        provider=None,
         policy_engine: Optional[object] = None,
     ):
-        self.provider = provider or MockTransportProvider()
+        self.provider = provider or get_provider("transport")
+        approval_gate._provider = self.provider
         registry = ToolRegistry()
         registry.register(SEARCH_TRANSPORT_DEF, self._search_transport)
         registry.register(BOOK_TRANSPORT_DEF, self._book_transport)
