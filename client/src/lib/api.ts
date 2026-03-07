@@ -165,6 +165,54 @@ class ApiClient {
     return res.json();
   }
 
+  async getTripItinerary(tripId: string) {
+    const res = await fetch(`/api/trips/${tripId}/itinerary`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Get itinerary failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async updateItineraryItem(tripId: string, itemId: string, action: string, notes = "") {
+    const res = await fetch(`/api/trips/${tripId}/itinerary/items/${itemId}`, {
+      method: "PATCH",
+      headers: this.headers(),
+      body: JSON.stringify({ action, notes }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Update item failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async getChatHistory(tripId: string) {
+    const res = await fetch(`/api/trips/${tripId}/chat`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Get chat failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async sendChatMessage(tripId: string, message: string) {
+    const res = await fetch(`/api/trips/${tripId}/chat`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ message }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Send chat failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
   async getPolicies(orgId?: string) {
     const url = orgId
       ? `/api/policies?${new URLSearchParams({ org_id: orgId })}`

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import TripForm from "@/components/TripForm";
 import TripTimeline from "@/components/TripTimeline";
 import TripList from "@/components/TripList";
@@ -49,6 +50,7 @@ type MobileTab = "trips" | "plan" | "timeline" | "settings";
 type View = "timeline" | "detail" | "settings";
 
 export default function Home() {
+  const router = useRouter();
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
   const [events, setEvents] = useState<TripEvent[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -351,7 +353,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                     <div className="flex items-center gap-2">
                       {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
                         <button
-                          onClick={() => setView("detail")}
+                          onClick={() => router.push(`/trips/${activeTrip.id}`)}
                           className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-accent border-2 border-accent-border px-3 py-1.5 hover:bg-accent-soft btn-transition"
                         >
                           View Details
@@ -413,7 +415,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
                       <button
-                        onClick={() => setView("detail")}
+                        onClick={() => router.push(`/trips/${activeTrip.id}`)}
                         className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-accent border-2 border-accent-border px-2 py-1.5 btn-transition min-h-touch flex items-center"
                       >
                         Details

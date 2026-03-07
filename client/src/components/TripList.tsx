@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 interface Trip {
   id: string;
@@ -114,6 +115,15 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
                   )}
                   {trip.total_spent != null && trip.total_spent > 0 && (
                     <span className="font-display text-sm text-text-mid">${trip.total_spent.toFixed(0)}</span>
+                  )}
+                  {(trip.status === "complete" || trip.status === "completed" || trip.status === "awaiting_approval") && (
+                    <Link
+                      href={`/trips/${trip.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-ui text-[0.6rem] font-bold uppercase tracking-[0.1em] text-accent hover:underline ml-auto"
+                    >
+                      View
+                    </Link>
                   )}
                 </div>
               </button>
