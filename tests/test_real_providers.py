@@ -48,7 +48,56 @@ async def test_amadeus_sandbox_booking_prefix():
     assert provider._is_sandbox is True
 
 
-# ── Booking.com ──────────────────────────────────────────────────────────────
+# ── Duffel Flights ───────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not _real_apis_available(), reason=SKIP_REASON)
+async def test_duffel_flight_search():
+    """Verify Duffel flight search returns normalized results."""
+    from providers.real.duffel import DuffelFlightProvider
+
+    provider = DuffelFlightProvider()
+    results = await provider.search_flights("JFK", "LHR", "2026-06-15")
+
+    assert len(results) > 0
+    first = results[0]
+    assert "estimated_cost" in first or "price" in first
+    assert "cabin_class" in first
+    assert "duration_minutes" in first
+    assert first["provider"] == "Duffel"
+    assert os.environ.get("DUFFEL_API_TOKEN", "") not in str(first)
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not _real_apis_available(), reason=SKIP_REASON)
+async def test_duffel_flight_sandbox_prefix():
+    """Duffel sandbox detection works correctly."""
+    from providers.real.duffel import DuffelFlightProvider
+
+    provider = DuffelFlightProvider()
+    assert provider._is_sandbox is True
+
+
+# ── Duffel Hotels ────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not _real_apis_available(), reason=SKIP_REASON)
+async def test_duffel_hotel_search():
+    """Verify Duffel hotel search returns normalized results."""
+    from providers.real.duffel_hotels import DuffelHotelProvider
+
+    provider = DuffelHotelProvider()
+    results = await provider.search_hotels("London", "2026-06-15", "2026-06-18")
+
+    assert len(results) > 0
+    first = results[0]
+    assert "cost_per_night" in first
+    assert "star_rating" in first
+    assert first["provider"] == "Duffel"
+    assert os.environ.get("DUFFEL_API_TOKEN", "") not in str(first)
+
+
+# ── Booking.com (fallback) ──────────────────────────────────────────────────
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(not _real_apis_available(), reason=SKIP_REASON)
@@ -68,8 +117,9 @@ async def test_bookingcom_search():
 # ── Provider factory ─────────────────────────────────────────────────────────
 
 def test_factory_returns_mock_by_default():
-    """With USE_REAL_APIS=false, factory returns mock providers."""
+    """With USE_REAL_APIS=false, factory returns mock providers wrapped in FallbackProvider."""
     from providers.factory import get_provider
+    from providers.fallback import FallbackProvider
     from providers.mock.flight_provider import MockFlightProvider
     from providers.mock.hotel_provider import MockHotelProvider
     from providers.mock.transport_provider import MockTransportProvider
@@ -78,10 +128,21 @@ def test_factory_returns_mock_by_default():
     # Ensure USE_REAL_APIS is not set
     old = os.environ.pop("USE_REAL_APIS", None)
     try:
-        assert isinstance(get_provider("flight"), MockFlightProvider)
-        assert isinstance(get_provider("hotel"), MockHotelProvider)
-        assert isinstance(get_provider("transport"), MockTransportProvider)
-        assert isinstance(get_provider("activity"), MockActivityProvider)
+        flight = get_provider("flight")
+        assert isinstance(flight, FallbackProvider)
+        assert isinstance(flight.primary, MockFlightProvider)
+
+        hotel = get_provider("hotel")
+        assert isinstance(hotel, FallbackProvider)
+        assert isinstance(hotel.primary, MockHotelProvider)
+
+        transport = get_provider("transport")
+        assert isinstance(transport, FallbackProvider)
+        assert isinstance(transport.primary, MockTransportProvider)
+
+        activity = get_provider("activity")
+        assert isinstance(activity, FallbackProvider)
+        assert isinstance(activity.primary, MockActivityProvider)
     finally:
         if old is not None:
             os.environ["USE_REAL_APIS"] = old
