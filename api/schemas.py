@@ -1,22 +1,22 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ── Trips ──────────────────────────────────────────────────────────────────────
 
 class TripCreate(BaseModel):
-    goal: str
-    user_id: Optional[str] = None  # M6: set from JWT auth; nullable for migration compat
-    total_budget: Optional[float] = None
-    org_id: Optional[str] = None
-    policy_id: Optional[str] = None  # explicit override; error if inactive (INV-9)
+    goal: str = Field(..., min_length=1, max_length=2000)
+    user_id: Optional[str] = Field(None, max_length=255)
+    total_budget: Optional[float] = Field(None, ge=0, le=1_000_000)
+    org_id: Optional[str] = Field(None, max_length=255)
+    policy_id: Optional[str] = Field(None, max_length=255)
 
 
 class ClarificationResponse(BaseModel):
-    request_id: str
-    answers: Dict[str, str]
+    request_id: str = Field(..., max_length=255)
+    answers: Dict[str, str]  # values are user-supplied text
 
 
 class BookingOut(BaseModel):
@@ -89,12 +89,12 @@ class PendingApprovalOut(BaseModel):
 # ── Policies ──────────────────────────────────────────────────────────────────
 
 class PolicyRuleCreate(BaseModel):
-    booking_type: str  # 'flight' | 'hotel' | 'any'
-    rule_key: str
-    operator: str      # 'lte' | 'gte' | 'in' | 'not_in'
+    booking_type: str = Field(..., max_length=50)
+    rule_key: str = Field(..., max_length=100)
+    operator: str = Field(..., max_length=20)
     value: Dict[str, Any]
-    severity: str      # 'hard' | 'soft'
-    message: str
+    severity: str = Field(..., max_length=10)
+    message: str = Field(..., max_length=500)
     is_enabled: bool = True
 
 
@@ -115,16 +115,16 @@ class PolicyRuleOut(BaseModel):
 class PolicyRuleUpdate(BaseModel):
     is_enabled: Optional[bool] = None
     value: Optional[Dict[str, Any]] = None
-    severity: Optional[str] = None
-    message: Optional[str] = None
+    severity: Optional[str] = Field(None, max_length=10)
+    message: Optional[str] = Field(None, max_length=500)
 
 
 class PolicyCreate(BaseModel):
-    org_id: str
-    name: str
+    org_id: str = Field(..., min_length=1, max_length=255)
+    name: str = Field(..., min_length=1, max_length=255)
     is_active: bool = True
-    created_by: str = "system"
-    rules: List[PolicyRuleCreate] = []
+    created_by: str = Field("system", max_length=255)
+    rules: List[PolicyRuleCreate] = Field(default=[], max_length=50)
 
 
 class PolicyOut(BaseModel):
@@ -140,7 +140,7 @@ class PolicyOut(BaseModel):
 
 
 class PolicyUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=255)
     is_active: Optional[bool] = None
 
 

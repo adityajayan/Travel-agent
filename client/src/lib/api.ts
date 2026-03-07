@@ -35,7 +35,7 @@ class ApiClient {
     });
     if (!res.ok) {
       if (res.status >= 502 && res.status <= 504) {
-        throw new Error("Backend server is not running. Start it with: python -m uvicorn api.main:app --port 8000");
+        throw new Error("Unable to reach the server. Please try again later.");
       }
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Create trip failed: ${res.status}`);
@@ -47,7 +47,7 @@ class ApiClient {
     const res = await fetch("/api/trips", { headers: this.headers() });
     if (!res.ok) {
       if (res.status >= 502 && res.status <= 504) {
-        throw new Error("Backend server is not running. Start it with: python -m uvicorn api.main:app --port 8000");
+        throw new Error("Unable to reach the server. Please try again later.");
       }
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Get trips failed: ${res.status}`);
@@ -105,7 +105,9 @@ class ApiClient {
   }
 
   async getPolicies(orgId?: string) {
-    const url = orgId ? `/api/policies?org_id=${orgId}` : "/api/policies";
+    const url = orgId
+      ? `/api/policies?${new URLSearchParams({ org_id: orgId })}`
+      : "/api/policies";
     const res = await fetch(url, { headers: this.headers() });
     if (!res.ok) {
       const body = await res.json().catch(() => null);

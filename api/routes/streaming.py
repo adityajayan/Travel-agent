@@ -9,9 +9,10 @@ import logging
 from typing import Optional
 
 import jwt
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 
+from core.auth import CurrentUser, get_current_user
 from core.config import settings
 from core.event_bus import EventBus
 
@@ -96,7 +97,10 @@ async def trip_websocket(
 
 
 @router.get("/trips/{trip_id}/events")
-async def trip_events_sse(trip_id: str):
+async def trip_events_sse(
+    trip_id: str,
+    user: CurrentUser = Depends(get_current_user),
+):
     """SSE fallback endpoint — streams same events as WebSocket."""
 
     async def event_stream():

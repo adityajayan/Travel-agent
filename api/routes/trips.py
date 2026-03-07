@@ -6,6 +6,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.auth import CurrentUser, get_current_user
+
 from agents.activity_agent import ActivityAgent
 from agents.flight_agent import FlightAgent
 from agents.hotel_agent import HotelAgent
@@ -197,7 +199,7 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
         trip.status = "failed"
         await db.commit()
         bus = EventBus.get_or_create(trip_id)
-        await bus.emit({"type": "trip_failed", "message": str(exc)})
+        await bus.emit({"type": "trip_failed", "message": "An internal error occurred while processing your trip."})
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -207,12 +209,15 @@ async def create_trip(
     body: TripCreate,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
+    # Use authenticated user_id instead of trusting client-supplied value
+    effective_user_id = user.user_id if user.user_id != "anonymous" else body.user_id
     trip = Trip(
         id=str(uuid.uuid4()),
         goal=body.goal,
         status="pending",
-        user_id=body.user_id,
+        user_id=effective_user_id,
         total_budget=body.total_budget,
         org_id=body.org_id,
         policy_id=body.policy_id,
@@ -238,7 +243,11 @@ async def create_trip(
 
 
 @router.get("/{trip_id}", response_model=TripRead)
-async def get_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
+async def get_trip(
+    trip_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
     result = await db.execute(select(Trip).where(Trip.id == trip_id))
     trip = result.scalar_one_or_none()
     if not trip:
@@ -265,7 +274,10 @@ async def get_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("", response_model=list[TripRead])
-async def list_trips(db: AsyncSession = Depends(get_db)):
+async def list_trips(
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
     result = await db.execute(select(Trip))
     trips = result.scalars().all()
     return [
@@ -291,6 +303,7 @@ async def submit_clarification(
     trip_id: str,
     body: ClarificationResponse,
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """Receive user answers to clarifying questions and forward to the waiting agent."""
     result = await db.execute(select(Trip).where(Trip.id == trip_id))
@@ -307,7 +320,11 @@ async def submit_clarification(
 
 
 @router.patch("/{trip_id}")
-async def update_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
+async def update_trip(
+    trip_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
     """Cancel a running trip."""
     result = await db.execute(select(Trip).where(Trip.id == trip_id))
     trip = result.scalar_one_or_none()
@@ -325,7 +342,11 @@ async def update_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{trip_id}/policy-report", response_model=PolicyReportResponse)
-async def get_policy_report(trip_id: str, db: AsyncSession = Depends(get_db)):
+async def get_policy_report(
+    trip_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
     """Return all PolicyViolation rows for a trip — useful for audit and finance review."""
     result = await db.execute(select(Trip).where(Trip.id == trip_id))
     trip = result.scalar_one_or_none()

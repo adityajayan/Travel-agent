@@ -83,7 +83,7 @@ class FallbackProvider:
                     })
                 return results
             except Exception as exc:
-                error_msg = str(exc)
+                error_msg = type(exc).__name__
                 errors.append((provider_name, error_msg))
                 logger.warning(
                     "%s provider %s failed: %s — trying next",

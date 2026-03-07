@@ -24,7 +24,7 @@ const withPWA = require("next-pwa")({
       method: "GET",
       options: {
         cacheName: "apis",
-        expiration: { maxEntries: 16, maxAgeSeconds: 86400 },
+        expiration: { maxEntries: 16, maxAgeSeconds: 900 },  // 15 min for sensitive data
         networkTimeoutSeconds: 10,
       },
     },
@@ -35,7 +35,7 @@ const withPWA = require("next-pwa")({
       method: "GET",
       options: {
         cacheName: "api-trip-detail",
-        expiration: { maxEntries: 32, maxAgeSeconds: 86400 },
+        expiration: { maxEntries: 32, maxAgeSeconds: 900 },  // 15 min for sensitive data
         networkTimeoutSeconds: 10,
       },
     },
@@ -115,6 +115,30 @@ const withPWA = require("next-pwa")({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data: blob:",
+              "connect-src 'self' ws://localhost:* wss://localhost:*",
+              "frame-ancestors 'none'",
+            ].join("; "),
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     const backend = process.env.BACKEND_URL || "http://localhost:8000";
     return [

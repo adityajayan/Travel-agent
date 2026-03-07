@@ -40,14 +40,14 @@ class DuffelFlightProvider(BaseFlightProvider):
         }
         max_retries = 3
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             for attempt in range(max_retries + 1):
                 resp = await client.request(
                     method, f"{BASE_URL}{path}",
                     headers=headers, **kwargs
                 )
                 if resp.status_code == 429:
-                    retry_after = int(resp.headers.get("retry-after", 2 ** attempt))
+                    retry_after = min(int(resp.headers.get("retry-after", 2 ** attempt)), 60)
                     logger.warning("Duffel 429 — retrying after %ds (attempt %d)", retry_after, attempt + 1)
                     import asyncio
                     await asyncio.sleep(retry_after)

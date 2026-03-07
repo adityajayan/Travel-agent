@@ -37,7 +37,7 @@ class HertzTransportProvider(BaseTransportProvider):
         if self._token and time.time() < self._token_expires_at:
             return self._token
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"{BASE_URL}/oauth/token",
                 data={"grant_type": "client_credentials", "client_id": self._client_id, "client_secret": self._client_secret},
@@ -53,11 +53,11 @@ class HertzTransportProvider(BaseTransportProvider):
         headers = {"Authorization": f"Bearer {token}"}
         max_retries = 3
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             for attempt in range(max_retries + 1):
                 resp = await client.request(method, f"{BASE_URL}{path}", headers=headers, **kwargs)
                 if resp.status_code == 429:
-                    retry_after = int(resp.headers.get("retry-after", 2 ** attempt))
+                    retry_after = min(int(resp.headers.get("retry-after", 2 ** attempt)), 60)
                     import asyncio
                     await asyncio.sleep(retry_after)
                     continue
