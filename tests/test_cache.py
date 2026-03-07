@@ -74,6 +74,15 @@ def test_cache_key_different_providers():
     assert key_amadeus != key_duffel
 
 
+def test_cache_key_duffel_hotel_vs_flight():
+    """Duffel hotel and flight providers produce different cache keys."""
+    cache = ProviderCache()
+    params = {"destination": "London"}
+    key_hotel = cache._cache_key("hotel", "DuffelHotelProvider", params)
+    key_flight = cache._cache_key("flight", "DuffelFlightProvider", params)
+    assert key_hotel != key_flight
+
+
 @pytest.mark.asyncio
 async def test_cache_graceful_degradation_on_bad_url():
     """Cache gracefully handles invalid Redis URL."""

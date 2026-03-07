@@ -1,4 +1,4 @@
-"""Duffel Flights API Provider — fallback flight provider (M8).
+"""Duffel Flights API Provider — primary flight provider.
 
 Simpler auth (Bearer token). Good NDC access.
 Credentials loaded from env vars (INV-10).

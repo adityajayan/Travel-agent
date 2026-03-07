@@ -30,18 +30,18 @@ def get_provider(domain: str) -> FallbackProvider:
 
     if domain == "flight":
         if use_real:
-            from providers.real.amadeus import AmadeusFlightProvider
             from providers.real.duffel import DuffelFlightProvider
-            providers = [AmadeusFlightProvider(), DuffelFlightProvider()]
+            from providers.real.amadeus import AmadeusFlightProvider
+            providers = [DuffelFlightProvider(), AmadeusFlightProvider()]
         else:
             from providers.mock.flight_provider import MockFlightProvider
             providers = [MockFlightProvider()]
 
     elif domain == "hotel":
         if use_real:
+            from providers.real.duffel_hotels import DuffelHotelProvider
             from providers.real.bookingcom import BookingcomHotelProvider
-            from providers.real.amadeus_hotels import AmadeusHotelProvider
-            providers = [BookingcomHotelProvider(), AmadeusHotelProvider()]
+            providers = [DuffelHotelProvider(), BookingcomHotelProvider()]
         else:
             from providers.mock.hotel_provider import MockHotelProvider
             providers = [MockHotelProvider()]
