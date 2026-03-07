@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.routes import approvals, policies, push, streaming, trips
+from api.routes import approvals, parse, policies, push, streaming, trips
 from core.config import settings
 from db.database import init_db
 
@@ -125,6 +125,7 @@ async def auth_middleware(request: Request, call_next):
 
 
 app.include_router(trips.router)
+app.include_router(parse.router)
 app.include_router(approvals.router)
 app.include_router(policies.router)
 app.include_router(streaming.router)

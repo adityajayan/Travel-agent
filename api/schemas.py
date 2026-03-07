@@ -12,6 +12,7 @@ class TripCreate(BaseModel):
     total_budget: Optional[float] = Field(None, ge=0, le=1_000_000)
     org_id: Optional[str] = Field(None, max_length=255)
     policy_id: Optional[str] = Field(None, max_length=255)
+    parsed_params: Optional["ParsedTripParams"] = None
 
 
 class ClarificationResponse(BaseModel):
@@ -167,3 +168,57 @@ class PolicyReportResponse(BaseModel):
     trip_id: str
     policy_id: Optional[str] = None
     violations: List[PolicyViolationRowOut] = []
+
+
+# ── Parse (freeform NLU) ─────────────────────────────────────────────────────
+
+class ParseTripRequest(BaseModel):
+    text: str = Field(..., min_length=5, max_length=2000, description="Raw natural language trip request")
+
+
+class TravelerCount(BaseModel):
+    adults: int = 1
+    children: int = 0
+
+
+class FlightPreferences(BaseModel):
+    cabin_class: Optional[str] = None
+    airline: Optional[str] = None
+    nonstop: Optional[bool] = None
+    seat_preference: Optional[str] = None
+
+
+class HotelPreferences(BaseModel):
+    type: Optional[str] = None
+    star_rating: Optional[int] = None
+    amenities: List[str] = Field(default_factory=list)
+    location_notes: Optional[str] = None
+    budget_per_night: Optional[float] = None
+
+
+class ParsedTripParams(BaseModel):
+    destinations: List[str] = Field(default_factory=list)
+    origin: Optional[str] = None
+    departure_date: Optional[str] = None
+    return_date: Optional[str] = None
+    duration_days: Optional[int] = None
+    budget_total: Optional[float] = None
+    budget_currency: str = "USD"
+    travelers: TravelerCount = Field(default_factory=TravelerCount)
+    domains: List[str] = Field(default_factory=list)
+    flight_preferences: FlightPreferences = Field(default_factory=FlightPreferences)
+    hotel_preferences: HotelPreferences = Field(default_factory=HotelPreferences)
+    activity_preferences: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class ParseTripResponse(BaseModel):
+    parsed: ParsedTripParams
+    goal_text: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    clarification_needed: List[str] = Field(default_factory=list)
+    raw_input: str
+
+
+# Resolve forward reference in TripCreate
+TripCreate.model_rebuild()

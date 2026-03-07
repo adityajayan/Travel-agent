@@ -159,15 +159,15 @@ def test_api_client_has_create_trip_options():
 
 
 def test_trip_form_has_travel_fields():
-    """TripForm includes destination, duration, airline, stay, and budget fields."""
+    """TripForm includes freeform textarea, voice input, parse flow, and trip submission."""
     form_path = os.path.join(CLIENT_DIR, "src", "components", "TripForm.tsx")
     with open(form_path) as f:
         content = f.read()
-    assert "destination" in content
-    assert "duration" in content
-    assert "airline" in content
-    assert "stayType" in content
+    assert "textarea" in content
+    assert "VoiceInputButton" in content
+    assert "parseTripGoal" in content or "handleParse" in content
     assert "total_budget" in content
+    assert "onSubmit" in content
 
 
 def test_websocket_hook_has_reconnection():
