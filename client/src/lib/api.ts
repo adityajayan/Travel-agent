@@ -1,8 +1,53 @@
+export interface TravelerCount {
+  adults: number;
+  children: number;
+}
+
+export interface FlightPreferences {
+  cabin_class: string | null;
+  airline: string | null;
+  nonstop: boolean | null;
+  seat_preference: string | null;
+}
+
+export interface HotelPreferences {
+  type: string | null;
+  star_rating: number | null;
+  amenities: string[];
+  location_notes: string | null;
+  budget_per_night: number | null;
+}
+
+export interface ParsedTripParams {
+  destinations: string[];
+  origin: string | null;
+  departure_date: string | null;
+  return_date: string | null;
+  duration_days: number | null;
+  budget_total: number | null;
+  budget_currency: string;
+  travelers: TravelerCount;
+  domains: string[];
+  flight_preferences: FlightPreferences;
+  hotel_preferences: HotelPreferences;
+  activity_preferences: string[];
+  notes: string | null;
+}
+
+export interface ParseTripResponse {
+  parsed: ParsedTripParams;
+  goal_text: string;
+  confidence: number;
+  clarification_needed: string[];
+  raw_input: string;
+}
+
 export interface CreateTripOptions {
   goal: string;
   total_budget?: number;
   org_id?: string;
   policy_id?: string;
+  parsed_params?: ParsedTripParams;
 }
 
 /** Result of the auth probe: "ok" = no auth needed, "auth_required" = need JWT, "unavailable" = backend down */
@@ -25,6 +70,22 @@ class ApiClient {
       h["Authorization"] = `Bearer ${this.token}`;
     }
     return h;
+  }
+
+  async parseTripGoal(text: string): Promise<ParseTripResponse> {
+    const res = await fetch("/api/trips/parse", {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      if (res.status >= 502 && res.status <= 504) {
+        throw new Error("Unable to reach the server. Please try again later.");
+      }
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Parse failed: ${res.status}`);
+    }
+    return res.json();
   }
 
   async createTrip(options: CreateTripOptions) {
