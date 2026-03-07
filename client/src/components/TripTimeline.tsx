@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 interface BookingData {
   domain: string;
@@ -325,9 +326,11 @@ function BudgetTierCard({ tier, isLast }: { tier: BudgetTier; isLast: boolean })
 function ApprovalCard({
   event,
   onApproval,
+  tripId,
 }: {
   event: TripEvent;
   onApproval: (id: string, approved: boolean) => void;
+  tripId?: string;
 }) {
   const [decided, setDecided] = useState<"approved" | "rejected" | null>(null);
   const context = event.context || {};
@@ -423,6 +426,17 @@ function ApprovalCard({
           >
             Reject
           </button>
+          {tripId && (
+            <Link
+              href={`/trips/${tripId}`}
+              className="px-4 py-2.5 text-accent font-ui text-xs font-bold uppercase tracking-[0.1em] hover:underline btn-transition min-h-touch flex items-center gap-1 ml-auto"
+            >
+              Review Full Itinerary
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          )}
         </div>
       </div>
     </div>
@@ -476,7 +490,7 @@ function TimelineEvent({
       return <SmartDefaultsCard event={event} />;
 
     case "approval_required":
-      return <ApprovalCard event={event} onApproval={onApproval} />;
+      return <ApprovalCard event={event} onApproval={onApproval} tripId={tripId} />;
 
     case "clarification_needed":
       return (
@@ -508,6 +522,17 @@ function TimelineEvent({
                 </span>
                 <span className="font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] text-success ml-1">total</span>
               </div>
+            )}
+            {tripId && (
+              <Link
+                href={`/trips/${tripId}`}
+                className="mt-3 inline-flex items-center gap-1 px-5 py-2.5 bg-contrast text-paper font-ui text-xs font-bold uppercase tracking-[0.1em] hover:bg-accent btn-transition"
+              >
+                View Trip Plan
+                <svg className="h-3 w-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
             )}
           </div>
 

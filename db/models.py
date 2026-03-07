@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, JSON, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, JSON, String, Text
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.sql import func
 
@@ -156,6 +156,22 @@ class PolicyViolation(Base):
     trip = relationship("Trip", back_populates="policy_violations")
 
 
+# ── Trip Chat Messages ────────────────────────────────────────────────────────
+
+class TripChatMessage(Base):
+    __tablename__ = "trip_chat_messages"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    trip_id = Column(String, ForeignKey("trips.id"), nullable=False)
+    role = Column(String, nullable=False)         # "user" | "assistant"
+    content = Column(Text, nullable=False)
+    metadata_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    trip = relationship("Trip", backref="chat_messages")
+
+
 # Indices for common query patterns
 Index("ix_policies_org_active", CorporatePolicy.org_id, CorporatePolicy.is_active)
 Index("ix_violations_trip", PolicyViolation.trip_id)
+Index("ix_chat_messages_trip", TripChatMessage.trip_id)

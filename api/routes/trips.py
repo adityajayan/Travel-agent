@@ -13,14 +13,19 @@ from agents.flight_agent import FlightAgent
 from agents.hotel_agent import HotelAgent
 from agents.orchestrator_agent import OrchestratorAgent, _detect_domains
 from agents.transport_agent import TransportAgent
-from api.schemas import BookingOut, ClarificationResponse, PolicyReportResponse, PolicyViolationRowOut, TripCreate, TripRead
+from api.schemas import (
+    BookingOut, BudgetBreakdown, ChatMessageIn, ChatMessageOut,
+    ClarificationResponse, ItineraryDay, ItineraryItem,
+    PolicyReportResponse, PolicyViolationRowOut, TripCreate, TripItinerary,
+    TripRead, UpdateItineraryItemRequest,
+)
 from core.approval_gate import ApprovalGate
 from core.audit_logger import AuditLogger
 from core.event_bus import EventBus
 from core.intent import extract_and_infer
 from core.policy_engine import PolicyEngine, PolicyNotFoundError
 from db.database import get_db
-from db.models import Booking, CorporatePolicy, PolicyViolation, Trip
+from db.models import Booking, CorporatePolicy, HumanApproval, PolicyViolation, Trip, TripChatMessage
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 logger = logging.getLogger(__name__)
@@ -365,3 +370,317 @@ async def get_policy_report(
         policy_id=trip.policy_id,
         violations=[PolicyViolationRowOut.model_validate(v) for v in violations],
     )
+
+
+# ── Itinerary Endpoint ────────────────────────────────────────────────────────
+
+def _booking_to_itinerary_item(
+    booking: Booking,
+    approval: Optional[HumanApproval] = None,
+) -> ItineraryItem:
+    """Convert a Booking row + optional approval into an ItineraryItem."""
+    details = booking.details or {}
+    domain = booking.domain
+
+    # Build human-friendly title/subtitle based on domain
+    if domain == "flight":
+        origin = details.get("origin", details.get("departure_city", ""))
+        dest = details.get("destination", details.get("arrival_city", ""))
+        title = f"{origin} → {dest}" if origin and dest else f"Flight booking"
+        airline = details.get("airline", "")
+        flight_num = details.get("flight_number", "")
+        stops = details.get("stops", "")
+        subtitle_parts = [p for p in [airline, flight_num, stops] if p]
+        subtitle = " · ".join(str(s) for s in subtitle_parts) if subtitle_parts else booking.provider
+    elif domain == "hotel":
+        hotel_name = details.get("hotel_name", details.get("name", "Hotel"))
+        title = str(hotel_name)
+        room_type = details.get("room_type", "")
+        subtitle = str(room_type) if room_type else booking.provider
+    elif domain == "transport":
+        transport_type = details.get("type", details.get("transport_type", "Transfer"))
+        pickup = details.get("pickup", details.get("origin", ""))
+        dropoff = details.get("dropoff", details.get("destination", ""))
+        title = f"{transport_type}: {pickup} → {dropoff}" if pickup and dropoff else str(transport_type)
+        subtitle = booking.provider
+    else:  # activity
+        activity_name = details.get("name", details.get("activity_name", "Activity"))
+        title = str(activity_name)
+        subtitle = details.get("description", booking.provider) or booking.provider
+
+    time_str = str(details.get("time", details.get("departure_time", details.get("check_in", ""))))
+    nights = details.get("nights")
+    per_night = domain == "hotel" and nights is not None
+
+    # Determine status
+    if approval and approval.status == "pending":
+        status = "awaiting_approval"
+    elif approval and approval.status == "rejected":
+        status = "rejected"
+    else:
+        status = "confirmed"
+
+    return ItineraryItem(
+        id=booking.id,
+        type=domain,
+        status=status,
+        title=title,
+        subtitle=str(subtitle),
+        time=time_str,
+        cost=booking.amount,
+        details=str(details) if details else None,
+        per_night=per_night,
+        nights=int(nights) if nights is not None else None,
+        provider=booking.provider,
+        approval_id=approval.id if approval and approval.status == "pending" else None,
+    )
+
+
+@router.get("/{trip_id}/itinerary", response_model=TripItinerary)
+async def get_trip_itinerary(
+    trip_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Assemble trip data into a structured itinerary for the artifact view."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    # Fetch bookings
+    booking_result = await db.execute(
+        select(Booking).where(Booking.trip_id == trip_id).order_by(Booking.created_at)
+    )
+    bookings = booking_result.scalars().all()
+
+    # Fetch approvals keyed by domain+action for matching
+    approval_result = await db.execute(
+        select(HumanApproval).where(HumanApproval.trip_id == trip_id)
+    )
+    approvals = approval_result.scalars().all()
+    approval_map: dict[str, HumanApproval] = {}
+    for a in approvals:
+        # Match approvals to bookings by domain
+        approval_map[a.domain] = a
+
+    # Build itinerary items
+    items: list[ItineraryItem] = []
+    budget_by_category: dict[str, float] = {}
+    for booking in bookings:
+        approval = approval_map.get(booking.domain)
+        item = _booking_to_itinerary_item(booking, approval)
+        items.append(item)
+        budget_by_category[booking.domain] = budget_by_category.get(booking.domain, 0) + booking.amount
+
+    # Group items into days by creation order (since bookings may not have explicit dates)
+    # For now, create a single "Day 1" with all items, or group by date if available
+    days: list[ItineraryDay] = []
+    if items:
+        # Try to group by date from booking details
+        day_groups: dict[str, list[ItineraryItem]] = {}
+        for item in items:
+            # Use "Day 1" as default grouping
+            day_key = "Day 1"
+            if day_key not in day_groups:
+                day_groups[day_key] = []
+            day_groups[day_key].append(item)
+
+        # Extract destination from goal
+        goal_parts = trip.goal.split()
+        city = goal_parts[-1] if goal_parts else "Destination"
+
+        for i, (day_label, day_items) in enumerate(day_groups.items()):
+            days.append(ItineraryDay(
+                date=f"Day {i + 1}",
+                label=day_label,
+                city=city,
+                items=day_items,
+            ))
+
+    # Budget breakdown
+    total_budget = trip.total_budget or 0
+    allocated = trip.total_spent or 0
+    budget = BudgetBreakdown(
+        total=total_budget,
+        allocated=allocated,
+        remaining=max(total_budget - allocated, 0),
+        by_category=budget_by_category,
+    )
+
+    # Build subtitle
+    subtitle = trip.status.capitalize()
+    if trip.created_at:
+        subtitle = f"Created {trip.created_at.strftime('%b %d, %Y')}"
+
+    return TripItinerary(
+        trip_id=trip.id,
+        title=trip.goal,
+        subtitle=subtitle,
+        status=trip.status,
+        narrative=trip.summary_text,
+        days=days,
+        budget=budget,
+    )
+
+
+@router.patch("/{trip_id}/itinerary/items/{item_id}")
+async def update_itinerary_item(
+    trip_id: str,
+    item_id: str,
+    body: UpdateItineraryItemRequest,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Inline approve/reject from the artifact view."""
+    # Verify the trip exists
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    # Find the booking
+    booking_result = await db.execute(
+        select(Booking).where(Booking.id == item_id, Booking.trip_id == trip_id)
+    )
+    booking = booking_result.scalar_one_or_none()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    # Find a pending approval for this booking's domain
+    approval_result = await db.execute(
+        select(HumanApproval).where(
+            HumanApproval.trip_id == trip_id,
+            HumanApproval.domain == booking.domain,
+            HumanApproval.status == "pending",
+        )
+    )
+    approval = approval_result.scalar_one_or_none()
+
+    if body.action in ("approve", "reject"):
+        if not approval:
+            raise HTTPException(status_code=400, detail="No pending approval for this item")
+
+        from core.approval_gate import ApprovalGate
+        gate = ApprovalGate(db)
+        await gate.decide(approval.id, body.action == "approve")
+        return {"status": "approved" if body.action == "approve" else "rejected", "item_id": item_id}
+
+    elif body.action == "request_alternatives":
+        return {"status": "alternatives_requested", "item_id": item_id, "notes": body.notes}
+
+    raise HTTPException(status_code=400, detail=f"Unknown action: {body.action}")
+
+
+# ── Trip Chat Endpoints ───────────────────────────────────────────────────────
+
+@router.get("/{trip_id}/chat", response_model=list[ChatMessageOut])
+async def get_chat_history(
+    trip_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Get chat history for a trip."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    messages_result = await db.execute(
+        select(TripChatMessage)
+        .where(TripChatMessage.trip_id == trip_id)
+        .order_by(TripChatMessage.created_at)
+    )
+    messages = messages_result.scalars().all()
+    return [ChatMessageOut.model_validate(m) for m in messages]
+
+
+@router.post("/{trip_id}/chat", response_model=ChatMessageOut)
+async def send_chat_message(
+    trip_id: str,
+    body: ChatMessageIn,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Send a message in trip chat and get an AI response."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    # Save user message
+    user_msg = TripChatMessage(
+        id=str(uuid.uuid4()),
+        trip_id=trip_id,
+        role="user",
+        content=body.message,
+    )
+    db.add(user_msg)
+    await db.commit()
+
+    # Fetch bookings for context
+    booking_result = await db.execute(
+        select(Booking).where(Booking.trip_id == trip_id)
+    )
+    bookings = booking_result.scalars().all()
+    bookings_summary = ", ".join(
+        f"{b.domain}: ${b.amount:.0f} via {b.provider}" for b in bookings
+    ) or "No bookings yet"
+
+    # Fetch recent chat history for context
+    history_result = await db.execute(
+        select(TripChatMessage)
+        .where(TripChatMessage.trip_id == trip_id)
+        .order_by(TripChatMessage.created_at)
+    )
+    history = history_result.scalars().all()
+
+    # Build AI response using Claude
+    try:
+        from anthropic import AsyncAnthropic
+
+        client = AsyncAnthropic()
+        system_prompt = (
+            f"You are Concierge, an AI travel assistant. You are discussing trip '{trip.goal}' "
+            f"(status: {trip.status}). Current bookings: {bookings_summary}. "
+            f"Total spent: ${trip.total_spent:.2f}. "
+            f"{'Budget: $' + str(trip.total_budget) + '. ' if trip.total_budget else ''}"
+            f"{'Trip summary: ' + trip.summary_text + '. ' if trip.summary_text else ''}"
+            f"Help the user review, modify, or understand their trip. If the user asks to change "
+            f"something (swap hotel, find cheaper flights), explain what you'd change and confirm "
+            f"before making modifications. Be concise and helpful."
+        )
+
+        messages = []
+        for msg in history:
+            messages.append({"role": msg.role, "content": msg.content})
+
+        response = await client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
+            system=system_prompt,
+            messages=messages,
+        )
+        assistant_content = response.content[0].text
+    except Exception as exc:
+        logger.warning("Chat AI call failed: %s", exc)
+        # Fallback response
+        assistant_content = (
+            f"I'm Concierge, your travel assistant for this trip. "
+            f"Your trip '{trip.goal}' is currently {trip.status}. "
+            f"I can help you review your itinerary, suggest changes, or answer questions about your bookings. "
+            f"What would you like to know?"
+        )
+
+    # Save assistant message
+    assistant_msg = TripChatMessage(
+        id=str(uuid.uuid4()),
+        trip_id=trip_id,
+        role="assistant",
+        content=assistant_content,
+    )
+    db.add(assistant_msg)
+    await db.commit()
+    await db.refresh(assistant_msg)
+
+    return ChatMessageOut.model_validate(assistant_msg)

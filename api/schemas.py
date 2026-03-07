@@ -220,5 +220,72 @@ class ParseTripResponse(BaseModel):
     raw_input: str
 
 
+# ── Itinerary (Trip Artifact View) ────────────────────────────────────────────
+
+class ItineraryItem(BaseModel):
+    id: str
+    type: str                        # flight | hotel | transport | activity
+    status: str                      # pending | confirmed | suggested | rejected | awaiting_approval
+    title: str
+    subtitle: str
+    time: str
+    cost: float
+    currency: str = "USD"
+    details: Optional[str] = None
+    badge: Optional[str] = None
+    per_night: bool = False
+    nights: Optional[int] = None
+    provider: Optional[str] = None
+    approval_id: Optional[str] = None
+
+
+class ItineraryDay(BaseModel):
+    date: str
+    label: str
+    city: str
+    items: List[ItineraryItem]
+
+
+class BudgetBreakdown(BaseModel):
+    total: float
+    allocated: float
+    remaining: float
+    by_category: Dict[str, float]
+
+
+class TripItinerary(BaseModel):
+    trip_id: str
+    title: str
+    subtitle: str
+    status: str
+    narrative: Optional[str] = None
+    days: List[ItineraryDay]
+    budget: BudgetBreakdown
+    alerts: List[Dict[str, Any]] = []
+    preferences_applied: List[str] = []
+
+
+class UpdateItineraryItemRequest(BaseModel):
+    action: str   # "approve" | "reject" | "request_alternatives"
+    notes: str = ""
+
+
+# ── Trip Chat ────────────────────────────────────────────────────────────────
+
+class ChatMessageIn(BaseModel):
+    message: str = Field(..., min_length=1, max_length=5000)
+
+
+class ChatMessageOut(BaseModel):
+    id: str
+    trip_id: str
+    role: str
+    content: str
+    metadata_json: Optional[Dict[str, Any]] = None
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
 # Resolve forward reference in TripCreate
 TripCreate.model_rebuild()
