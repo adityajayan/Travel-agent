@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import VoiceInputButton from "./VoiceInputButton";
-import { CreateTripOptions, ParseTripResponse, ParsedTripParams, apiClient } from "@/lib/api";
+import { CreateTripOptions, ParseTripResponse, ParsedTripParams, DateSuggestion, apiClient } from "@/lib/api";
+import { searchAirports, Airport } from "@/lib/airports";
+import { getSavedPreferences } from "./Settings";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 interface TripFormProps {
   onSubmit: (options: CreateTripOptions) => void;
@@ -82,14 +86,15 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = (editedParams?: ParsedTripParams) => {
     if (!parseResult) return;
+    const params = editedParams ?? parseResult.parsed;
     const options: CreateTripOptions = {
       goal: parseResult.goal_text,
-      parsed_params: parseResult.parsed,
+      parsed_params: params,
     };
-    if (parseResult.parsed.budget_total) {
-      options.total_budget = parseResult.parsed.budget_total;
+    if (params.budget_total) {
+      options.total_budget = params.budget_total;
     }
     onSubmit(options);
     setText("");
@@ -108,7 +113,7 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
   };
 
   return (
-    <div className="bg-white border border-gold-light/40 rounded-xl shadow-sm card-hover-bar">
+    <Card hover padding="none">
       <form onSubmit={handleSubmit} className="p-4 lg:p-6">
         <p className="eyebrow mb-4">Plan Your Trip</p>
 
@@ -145,174 +150,538 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
             <p className="text-xs text-slate font-sans hidden sm:block">
               Describe your trip in your own words. Our AI will handle the rest.
             </p>
-            <button
-              type="submit"
-              disabled={disabled || !canSubmit || parsing}
-              className="w-full sm:w-auto px-6 py-3 lg:py-2.5 bg-navy text-cream font-sans text-sm font-semibold rounded-md hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed btn-transition min-h-touch"
-            >
+            <Button type="submit" variant="primary" size="md" disabled={disabled || !canSubmit || parsing} className="w-full sm:w-auto">
               {parsing ? "Understanding\u2026" : "Plan Trip"}
-            </button>
+            </Button>
           </div>
         )}
       </form>
 
       {parseResult && (
-        <div className="border-t border-gold-light/40 p-4 lg:p-6">
-          <p className="eyebrow mb-3">Here&apos;s What I Understood</p>
+        <TripConfirmation
+          parseResult={parseResult}
+          onConfirm={handleConfirm}
+          onStartOver={handleAdjust}
+          disabled={disabled}
+          setParseResult={setParseResult}
+        />
+      )}
+    </Card>
+  );
+}
 
-          <div className="flex flex-wrap gap-2 mb-4">
-            <ParsedChips parsed={parseResult.parsed} />
+const ALL_DOMAINS = ["flight", "hotel", "transport", "activity"] as const;
+
+const CABIN_CLASSES = [
+  { value: "", label: "Any" },
+  { value: "economy", label: "Economy" },
+  { value: "premium_economy", label: "Premium Economy" },
+  { value: "business", label: "Business" },
+  { value: "first", label: "First" },
+];
+
+const HOTEL_TYPES = [
+  { value: "", label: "Any" },
+  { value: "hotel", label: "Hotel" },
+  { value: "boutique", label: "Boutique" },
+  { value: "resort", label: "Resort" },
+  { value: "hostel", label: "Hostel" },
+  { value: "airbnb", label: "Airbnb" },
+];
+
+function TripConfirmation({
+  parseResult,
+  onConfirm,
+  onStartOver,
+  disabled,
+}: {
+  parseResult: ParseTripResponse;
+  onConfirm: (params: ParsedTripParams) => void;
+  onStartOver: () => void;
+  disabled?: boolean;
+  setParseResult: (r: ParseTripResponse | null) => void;
+}) {
+  const p = parseResult.parsed;
+
+  const [destinations, setDestinations] = useState<string[]>(p.destinations);
+  const [newDest, setNewDest] = useState("");
+  const [origin, setOrigin] = useState(p.origin ?? "");
+  const [departureDate, setDepartureDate] = useState(p.departure_date ?? "");
+  const [returnDate, setReturnDate] = useState(p.return_date ?? "");
+  const [durationDays, setDurationDays] = useState(p.duration_days ?? 5);
+  const [budgetTotal, setBudgetTotal] = useState(p.budget_total ?? 0);
+  const [adults, setAdults] = useState(p.travelers.adults);
+  const [children, setChildren] = useState(p.travelers.children);
+  const [domains, setDomains] = useState<string[]>(p.domains);
+  const [cabinClass, setCabinClass] = useState(p.flight_preferences.cabin_class ?? "");
+  const [airline, setAirline] = useState(p.flight_preferences.airline ?? "");
+  const [nonstop, setNonstop] = useState(p.flight_preferences.nonstop ?? false);
+  const [hotelType, setHotelType] = useState(p.hotel_preferences.type ?? "");
+  const [starRating, setStarRating] = useState(p.hotel_preferences.star_rating ?? 0);
+  const [locationNotes, setLocationNotes] = useState(p.hotel_preferences.location_notes ?? "");
+
+  const [dateSuggestions, setDateSuggestions] = useState<DateSuggestion[]>([]);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [originSuggestions, setOriginSuggestions] = useState<Airport[]>([]);
+  const [showOriginDropdown, setShowOriginDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const originDropdownRef = useRef<HTMLDivElement>(null);
+  const [datesExpanded, setDatesExpanded] = useState(!!(p.departure_date || p.return_date));
+
+  const hasFlights = domains.includes("flight");
+  const originMissing = hasFlights && !origin.trim();
+
+  // Auto-calc duration from dates
+  useEffect(() => {
+    if (departureDate && returnDate) {
+      const dep = new Date(departureDate + "T00:00:00");
+      const ret = new Date(returnDate + "T00:00:00");
+      const diff = Math.round((ret.getTime() - dep.getTime()) / (1000 * 60 * 60 * 24));
+      if (diff > 0) setDurationDays(diff);
+    }
+  }, [departureDate, returnDate]);
+
+  // Fetch date suggestions when destination is known and dates are empty
+  useEffect(() => {
+    if (destinations.length > 0 && !departureDate && !returnDate) {
+      apiClient
+        .suggestDates(destinations[0], durationDays)
+        .then((res) => setDateSuggestions(res.suggestions))
+        .catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pre-fill origin: saved prefs > geolocation
+  useEffect(() => {
+    if (origin) return;
+
+    const prefs = getSavedPreferences();
+    if (prefs.departureCity) {
+      setOrigin(prefs.departureCity);
+      return;
+    }
+
+    if (!navigator.geolocation) return;
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await apiClient.nearestCity(pos.coords.latitude, pos.coords.longitude);
+          setOrigin(res.city);
+        } catch { /* ignore */ }
+        setGeoLoading(false);
+      },
+      () => setGeoLoading(false),
+      { timeout: 5000 }
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleDomain = (d: string) => {
+    setDomains((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
+  };
+
+  const addDestination = () => {
+    const trimmed = newDest.trim();
+    if (trimmed && !destinations.includes(trimmed)) {
+      setDestinations((prev) => [...prev, trimmed]);
+      setNewDest("");
+    }
+  };
+
+  const removeDestination = (dest: string) => {
+    setDestinations((prev) => prev.filter((d) => d !== dest));
+  };
+
+  const applyDateSuggestion = (s: DateSuggestion) => {
+    setDepartureDate(s.departure_date);
+    setReturnDate(s.return_date);
+    setDateSuggestions([]);
+    setDatesExpanded(true);
+  };
+
+  const handleOriginChange = (value: string) => {
+    setOrigin(value);
+    if (value.trim().length >= 1) {
+      const results = searchAirports(value);
+      setOriginSuggestions(results);
+      setShowOriginDropdown(results.length > 0);
+      setHighlightedIndex(-1);
+    } else {
+      setOriginSuggestions([]);
+      setShowOriginDropdown(false);
+    }
+  };
+
+  const selectAirport = (airport: Airport) => {
+    setOrigin(airport.city);
+    setShowOriginDropdown(false);
+    setOriginSuggestions([]);
+  };
+
+  const handleOriginKeyDown = (e: React.KeyboardEvent) => {
+    if (!showOriginDropdown || originSuggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((i) => Math.min(i + 1, originSuggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" && highlightedIndex >= 0) {
+      e.preventDefault();
+      selectAirport(originSuggestions[highlightedIndex]);
+    } else if (e.key === "Escape") {
+      setShowOriginDropdown(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    const params: ParsedTripParams = {
+      destinations,
+      origin: origin.trim() || null,
+      departure_date: departureDate || null,
+      return_date: returnDate || null,
+      duration_days: durationDays || null,
+      budget_total: budgetTotal || null,
+      budget_currency: "USD",
+      travelers: { adults, children },
+      domains,
+      flight_preferences: {
+        cabin_class: cabinClass || null,
+        airline: airline.trim() || null,
+        nonstop: nonstop || null,
+        seat_preference: p.flight_preferences.seat_preference,
+      },
+      hotel_preferences: {
+        type: hotelType || null,
+        star_rating: starRating || null,
+        amenities: p.hotel_preferences.amenities,
+        location_notes: locationNotes.trim() || null,
+        budget_per_night: p.hotel_preferences.budget_per_night,
+      },
+      activity_preferences: p.activity_preferences,
+      notes: p.notes,
+    };
+    onConfirm(params);
+  };
+
+  return (
+    <div className="border-t border-gold-light/40 p-4 lg:p-6">
+      <p className="eyebrow mb-3">Confirm &amp; Edit Your Trip</p>
+
+      {(() => {
+        const activeClarifications = parseResult.clarification_needed.filter((c) => {
+          if (origin && /depart|origin|from where/i.test(c)) return false;
+          return true;
+        });
+        return activeClarifications.length > 0 ? (
+          <div className="mb-4 p-3 border border-gold-light/40 bg-cream-dark rounded-lg">
+            {activeClarifications.map((note, i) => (
+              <p key={i} className="text-xs font-sans text-slate">
+                <span className="font-semibold text-gold mr-1">&rarr;</span>
+                {note}
+              </p>
+            ))}
           </div>
+        ) : null;
+      })()}
 
-          {parseResult.clarification_needed.length > 0 && (
-            <div className="mb-4 p-3 border border-gold-light/40 bg-cream-dark rounded-lg">
-              {parseResult.clarification_needed.map((note, i) => (
-                <p key={i} className="text-xs font-sans text-slate">
-                  <span className="font-semibold text-gold mr-1">&rarr;</span>
-                  {note}
-                </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        {/* Destinations */}
+        <div>
+          <label className="block text-xs font-sans font-semibold text-navy mb-1">Destinations</label>
+          <div className="flex flex-wrap gap-1.5 mb-1.5">
+            {destinations.map((d) => (
+              <span key={d} className="inline-flex items-center gap-1 px-2.5 py-1 border border-navy/20 text-navy bg-cream rounded-md text-xs font-sans font-medium">
+                {d}
+                <button type="button" onClick={() => removeDestination(d)} className="text-slate hover:text-error ml-0.5" aria-label={`Remove ${d}`}>&times;</button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-1.5">
+            <input
+              type="text"
+              value={newDest}
+              onChange={(e) => setNewDest(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDestination(); } }}
+              placeholder="Add city..."
+              className="flex-1 border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-gold/30"
+            />
+            <button type="button" onClick={addDestination} className="px-2.5 py-1.5 bg-navy/10 text-navy rounded-md text-xs font-sans font-medium hover:bg-navy/20 btn-transition">Add</button>
+          </div>
+        </div>
+
+        {/* Departure City */}
+        <div className="relative" ref={originDropdownRef}>
+          <label className="block text-xs font-sans font-semibold text-navy mb-1">
+            Departure City {hasFlights && <span className="text-error">*</span>}
+          </label>
+          <input
+            type="text"
+            value={origin}
+            onChange={(e) => handleOriginChange(e.target.value)}
+            onKeyDown={handleOriginKeyDown}
+            onFocus={() => { if (originSuggestions.length > 0) setShowOriginDropdown(true); }}
+            onBlur={() => { setTimeout(() => setShowOriginDropdown(false), 150); }}
+            placeholder={geoLoading ? "Detecting location\u2026" : "City name or airport code (e.g. SFO)"}
+            className={`w-full border rounded-md px-2.5 py-1.5 text-xs font-sans text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream ${
+              originMissing ? "border-error ring-1 ring-error/30" : "border-navy/20"
+            }`}
+            autoComplete="off"
+          />
+          {showOriginDropdown && originSuggestions.length > 0 && (
+            <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-navy/20 rounded-md shadow-lg max-h-48 overflow-y-auto">
+              {originSuggestions.map((airport, i) => (
+                <button
+                  key={`${airport.code}-${i}`}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => selectAirport(airport)}
+                  className={`w-full text-left px-3 py-2 text-xs font-sans flex items-center justify-between btn-transition ${
+                    i === highlightedIndex ? "bg-gold/10 text-navy" : "text-navy hover:bg-cream-dark"
+                  }`}
+                >
+                  <span>{airport.city}</span>
+                  <span className="text-slate/60 font-medium">{airport.code}</span>
+                </button>
               ))}
             </div>
           )}
+          {originMissing && (
+            <p className="text-xs font-sans text-error mt-0.5">Required for flight searches</p>
+          )}
+        </div>
 
-          <div className="mb-4">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1 bg-cream-dark rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-success rounded-full transition-all duration-500"
-                  style={{ width: `${Math.round(parseResult.confidence * 100)}%` }}
-                />
-              </div>
-              <span className="text-[0.62rem] font-sans text-slate/60">
-                {Math.round(parseResult.confidence * 100)}% confident
-              </span>
+      </div>
+
+      {/* Travel Dates Section */}
+      <div className="mb-4">
+        <label className="block text-xs font-sans font-semibold text-navy mb-1.5">Travel Dates</label>
+
+        {/* Date suggestions — shown above date fields */}
+        {dateSuggestions.length > 0 && (
+          <div className="mb-2">
+            <div className="flex flex-wrap gap-2">
+              {dateSuggestions.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => applyDateSuggestion(s)}
+                  className="px-3 py-1.5 border border-gold-light/60 bg-cream rounded-md text-xs font-sans hover:bg-gold/10 hover:border-gold btn-transition text-left"
+                >
+                  <span className="font-semibold text-navy block">{s.label}</span>
+                  <span className="text-slate/70">{s.reason}</span>
+                </button>
+              ))}
             </div>
           </div>
+        )}
 
-          <div className="flex items-center gap-3">
+        {/* Collapsible date inputs */}
+        <button
+          type="button"
+          onClick={() => setDatesExpanded(!datesExpanded)}
+          className="text-xs font-sans font-medium text-gold hover:text-gold-dark btn-transition mb-1.5 flex items-center gap-1"
+        >
+          {datesExpanded ? "Hide specific dates \u25B2" : "Set specific dates \u25BC"}
+          {departureDate && !datesExpanded && (
+            <span className="text-slate/60 ml-1">{departureDate}{returnDate ? ` \u2013 ${returnDate}` : ""}</span>
+          )}
+        </button>
+
+        {datesExpanded && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-sans text-slate mb-0.5">Departure</label>
+              <input
+                type="date"
+                value={departureDate}
+                onChange={(e) => setDepartureDate(e.target.value)}
+                className="w-full border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-slate mb-0.5">Return</label>
+              <input
+                type="date"
+                value={returnDate}
+                onChange={(e) => setReturnDate(e.target.value)}
+                min={departureDate || undefined}
+                className="w-full border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        {/* Duration */}
+        <div>
+          <label className="block text-xs font-sans font-semibold text-navy mb-1">Duration (days)</label>
+          <input
+            type="number"
+            value={durationDays}
+            onChange={(e) => setDurationDays(Math.max(1, parseInt(e.target.value) || 1))}
+            min={1}
+            max={90}
+            className="w-full border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-gold/30"
+          />
+        </div>
+
+        {/* Budget */}
+        <div>
+          <label className="block text-xs font-sans font-semibold text-navy mb-1">Budget (USD)</label>
+          <input
+            type="number"
+            value={budgetTotal || ""}
+            onChange={(e) => setBudgetTotal(Math.max(0, parseFloat(e.target.value) || 0))}
+            placeholder="No limit"
+            min={0}
+            className="w-full border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-gold/30"
+          />
+        </div>
+
+        {/* Travelers */}
+        <div>
+          <label className="block text-xs font-sans font-semibold text-navy mb-1">Adults</label>
+          <input
+            type="number"
+            value={adults}
+            onChange={(e) => setAdults(Math.max(1, parseInt(e.target.value) || 1))}
+            min={1}
+            max={20}
+            className="w-full border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-gold/30"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-sans font-semibold text-navy mb-1">Children</label>
+          <input
+            type="number"
+            value={children}
+            onChange={(e) => setChildren(Math.max(0, parseInt(e.target.value) || 0))}
+            min={0}
+            max={20}
+            className="w-full border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-gold/30"
+          />
+        </div>
+      </div>
+
+      {/* Domain toggles */}
+      <div className="mb-4">
+        <label className="block text-xs font-sans font-semibold text-navy mb-1.5">What to book</label>
+        <div className="flex flex-wrap gap-2">
+          {ALL_DOMAINS.map((d) => (
             <button
-              onClick={handleConfirm}
-              disabled={disabled}
-              className="px-6 py-3 lg:py-2.5 bg-navy text-cream font-sans text-sm font-semibold rounded-md hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed btn-transition min-h-touch"
+              key={d}
+              type="button"
+              onClick={() => toggleDomain(d)}
+              className={`px-3 py-1.5 border rounded-md text-xs font-sans font-medium btn-transition ${
+                domains.includes(d)
+                  ? DOMAIN_STYLES[d]
+                  : "border-navy/10 text-slate/60 bg-cream-dark"
+              }`}
             >
-              Looks Good &mdash; Plan It
+              {DOMAIN_LABELS[d] ?? d}
             </button>
-            <button
-              onClick={handleAdjust}
-              className="font-sans text-sm font-medium text-slate hover:text-navy btn-transition"
-            >
-              Let Me Adjust
-            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Flight preferences */}
+      {hasFlights && (
+        <div className="mb-4 p-3 border border-blue-100 bg-blue-50/30 rounded-lg">
+          <p className="text-xs font-sans font-semibold text-blue-700 mb-2">Flight Preferences</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-sans text-blue-600 mb-0.5">Cabin Class</label>
+              <select
+                value={cabinClass}
+                onChange={(e) => setCabinClass(e.target.value)}
+                className="w-full border border-blue-200 bg-white rounded-md px-2 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-blue-200"
+              >
+                {CABIN_CLASSES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-blue-600 mb-0.5">Airline</label>
+              <input
+                type="text"
+                value={airline}
+                onChange={(e) => setAirline(e.target.value)}
+                placeholder="Any"
+                className="w-full border border-blue-200 bg-white rounded-md px-2 py-1.5 text-xs font-sans text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-1.5 text-xs font-sans text-blue-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={nonstop}
+                  onChange={(e) => setNonstop(e.target.checked)}
+                  className="rounded border-blue-200"
+                />
+                Nonstop only
+              </label>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Hotel preferences */}
+      {domains.includes("hotel") && (
+        <div className="mb-4 p-3 border border-purple-100 bg-purple-50/30 rounded-lg">
+          <p className="text-xs font-sans font-semibold text-purple-700 mb-2">Hotel Preferences</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-sans text-purple-600 mb-0.5">Type</label>
+              <select
+                value={hotelType}
+                onChange={(e) => setHotelType(e.target.value)}
+                className="w-full border border-purple-200 bg-white rounded-md px-2 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-purple-200"
+              >
+                {HOTEL_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-purple-600 mb-0.5">Star Rating</label>
+              <select
+                value={starRating}
+                onChange={(e) => setStarRating(parseInt(e.target.value) || 0)}
+                className="w-full border border-purple-200 bg-white rounded-md px-2 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-purple-200"
+              >
+                <option value={0}>Any</option>
+                <option value={3}>3+</option>
+                <option value={4}>4+</option>
+                <option value={5}>5</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-purple-600 mb-0.5">Location</label>
+              <input
+                type="text"
+                value={locationNotes}
+                onChange={(e) => setLocationNotes(e.target.value)}
+                placeholder="e.g. near city center"
+                className="w-full border border-purple-200 bg-white rounded-md px-2 py-1.5 text-xs font-sans text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-3 pt-3 border-t border-gold-light/30">
+        <Button type="button" variant="primary" size="md" onClick={handleSubmit} disabled={disabled || originMissing}>
+          Confirm &amp; Plan
+        </Button>
+        <Button type="button" variant="ghost" size="md" onClick={onStartOver}>
+          Start Over
+        </Button>
+      </div>
     </div>
   );
 }
 
-function ParsedChips({ parsed }: { parsed: ParsedTripParams }) {
-  const chips: { label: string; style: string }[] = [];
-
-  for (const dest of parsed.destinations) {
-    chips.push({ label: dest, style: "border-navy/20 text-navy bg-cream" });
-  }
-
-  if (parsed.origin) {
-    chips.push({ label: `from ${parsed.origin}`, style: "border-gold-light/40 text-charcoal bg-cream" });
-  }
-
-  if (parsed.departure_date && parsed.return_date) {
-    chips.push({
-      label: `${formatDate(parsed.departure_date)} \u2013 ${formatDate(parsed.return_date)}`,
-      style: "border-gold-light/40 text-charcoal bg-cream",
-    });
-  } else if (parsed.departure_date) {
-    chips.push({
-      label: formatDate(parsed.departure_date),
-      style: "border-gold-light/40 text-charcoal bg-cream",
-    });
-  }
-
-  if (parsed.duration_days) {
-    chips.push({
-      label: `${parsed.duration_days} day${parsed.duration_days !== 1 ? "s" : ""}`,
-      style: "border-gold-light/40 text-charcoal bg-cream",
-    });
-  }
-
-  if (parsed.budget_total) {
-    chips.push({
-      label: `$${parsed.budget_total.toLocaleString()} budget`,
-      style: "border-success-border text-success bg-success-soft",
-    });
-  }
-
-  const totalTravelers = parsed.travelers.adults + parsed.travelers.children;
-  if (totalTravelers > 1) {
-    const parts: string[] = [];
-    if (parsed.travelers.adults > 0) parts.push(`${parsed.travelers.adults} adult${parsed.travelers.adults !== 1 ? "s" : ""}`);
-    if (parsed.travelers.children > 0) parts.push(`${parsed.travelers.children} child${parsed.travelers.children !== 1 ? "ren" : ""}`);
-    chips.push({
-      label: parts.join(", "),
-      style: "border-gold-light/40 text-charcoal bg-cream",
-    });
-  }
-
-  for (const domain of parsed.domains) {
-    chips.push({
-      label: DOMAIN_LABELS[domain] ?? domain,
-      style: DOMAIN_STYLES[domain] ?? "border-gold-light/40 text-charcoal bg-cream",
-    });
-  }
-
-  if (parsed.flight_preferences.cabin_class) {
-    chips.push({
-      label: parsed.flight_preferences.cabin_class.replace("_", " "),
-      style: DOMAIN_STYLES.flight,
-    });
-  }
-  if (parsed.flight_preferences.airline) {
-    chips.push({
-      label: parsed.flight_preferences.airline,
-      style: DOMAIN_STYLES.flight,
-    });
-  }
-  if (parsed.flight_preferences.nonstop) {
-    chips.push({ label: "nonstop", style: DOMAIN_STYLES.flight });
-  }
-
-  if (parsed.hotel_preferences.type) {
-    chips.push({
-      label: parsed.hotel_preferences.type,
-      style: DOMAIN_STYLES.hotel,
-    });
-  }
-  if (parsed.hotel_preferences.location_notes) {
-    chips.push({
-      label: parsed.hotel_preferences.location_notes,
-      style: DOMAIN_STYLES.hotel,
-    });
-  }
-
-  return (
-    <>
-      {chips.map((chip, i) => (
-        <span
-          key={i}
-          className={`px-2.5 py-1 border rounded-md font-sans text-xs font-medium ${chip.style}`}
-        >
-          {chip.label}
-        </span>
-      ))}
-    </>
-  );
-}
-
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso + "T00:00:00");
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  } catch {
-    return iso;
-  }
-}

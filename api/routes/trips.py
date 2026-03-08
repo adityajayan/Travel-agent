@@ -216,6 +216,14 @@ async def create_trip(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
+    # Validate: flights require an origin city
+    if body.parsed_params and "flight" in (body.parsed_params.domains or []):
+        if not body.parsed_params.origin:
+            raise HTTPException(
+                status_code=422,
+                detail="Departure city is required when booking flights",
+            )
+
     # Use authenticated user_id instead of trusting client-supplied value
     effective_user_id = user.user_id if user.user_id != "anonymous" else body.user_id
     trip = Trip(

@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import FormInput from "@/components/ui/FormInput";
 
 interface SettingsProps {
   onClose: () => void;
@@ -44,7 +47,7 @@ function defaultPrefs(): StoredPreferences {
   };
 }
 
-const inputClasses = "w-full border border-navy/20 bg-cream rounded-md px-3 py-2 text-sm font-sans text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold";
+const selectClasses = "w-full border border-navy/20 bg-cream rounded-md px-3 py-2 text-sm font-sans text-navy focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold";
 
 export default function Settings({ onClose }: SettingsProps) {
   const [prefs, setPrefs] = useState<StoredPreferences>(defaultPrefs());
@@ -66,14 +69,15 @@ export default function Settings({ onClose }: SettingsProps) {
   };
 
   return (
-    <div className="bg-white border border-gold-light/40 rounded-xl p-6 shadow-sm">
+    <Card padding="md">
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-serif text-xl font-medium text-navy">Settings & Preferences</h2>
         <button
           onClick={onClose}
-          className="text-slate hover:text-navy btn-transition p-2 -mr-2 min-h-touch min-w-touch flex items-center justify-center rounded-md hover:bg-cream-dark"
+          className="text-slate hover:text-navy btn-transition p-2 -mr-2 min-h-touch min-w-touch flex items-center justify-center rounded-md hover:bg-cream-dark focus:outline-none focus:ring-2 focus:ring-gold/30"
+          aria-label="Close settings"
         >
-          <X className="h-5 w-5" />
+          <X className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
 
@@ -81,48 +85,36 @@ export default function Settings({ onClose }: SettingsProps) {
         <section>
           <p className="eyebrow mb-3">Organization</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Organization ID</label>
-              <input
-                type="text"
-                value={prefs.orgId}
-                onChange={(e) => update("orgId", e.target.value)}
-                placeholder="e.g. org-acme-corp"
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Policy ID (optional)</label>
-              <input
-                type="text"
-                value={prefs.policyId}
-                onChange={(e) => update("policyId", e.target.value)}
-                placeholder="Auto-resolved from org"
-                className={inputClasses}
-              />
-            </div>
+            <FormInput
+              label="Organization ID"
+              value={prefs.orgId}
+              onChange={(e) => update("orgId", e.target.value)}
+              placeholder="e.g. org-acme-corp"
+            />
+            <FormInput
+              label="Policy ID (optional)"
+              value={prefs.policyId}
+              onChange={(e) => update("policyId", e.target.value)}
+              placeholder="Auto-resolved from org"
+            />
           </div>
         </section>
 
         <section>
           <p className="eyebrow mb-3">Travel Defaults</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Home City</label>
-              <input
-                type="text"
-                value={prefs.defaultDepartureCity}
-                onChange={(e) => update("defaultDepartureCity", e.target.value)}
-                placeholder="e.g. New York, San Francisco"
-                className={inputClasses}
-              />
-            </div>
+            <FormInput
+              label="Home City"
+              value={prefs.defaultDepartureCity}
+              onChange={(e) => update("defaultDepartureCity", e.target.value)}
+              placeholder="e.g. New York, San Francisco"
+            />
             <div>
               <label className="block font-sans text-xs font-medium text-charcoal mb-1">Cabin Class</label>
               <select
                 value={prefs.cabinClass}
                 onChange={(e) => update("cabinClass", e.target.value)}
-                className={`${inputClasses} bg-cream`}
+                className={selectClasses}
               >
                 <option value="economy">Economy</option>
                 <option value="premium_economy">Premium Economy</option>
@@ -130,60 +122,42 @@ export default function Settings({ onClose }: SettingsProps) {
                 <option value="first">First Class</option>
               </select>
             </div>
-            <div>
-              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Preferred Airlines</label>
-              <input
-                type="text"
-                value={prefs.preferredAirlines}
-                onChange={(e) => update("preferredAirlines", e.target.value)}
-                placeholder="e.g. Delta, United"
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Preferred Hotels</label>
-              <input
-                type="text"
-                value={prefs.preferredHotelChains}
-                onChange={(e) => update("preferredHotelChains", e.target.value)}
-                placeholder="e.g. Marriott, Hilton"
-                className={inputClasses}
-              />
-            </div>
+            <FormInput
+              label="Preferred Airlines"
+              value={prefs.preferredAirlines}
+              onChange={(e) => update("preferredAirlines", e.target.value)}
+              placeholder="e.g. Delta, United"
+            />
+            <FormInput
+              label="Preferred Hotels"
+              value={prefs.preferredHotelChains}
+              onChange={(e) => update("preferredHotelChains", e.target.value)}
+              placeholder="e.g. Marriott, Hilton"
+            />
           </div>
         </section>
 
         <section>
           <p className="eyebrow mb-3">Personal</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Loyalty Programs</label>
-              <input
-                type="text"
-                value={prefs.loyaltyPrograms}
-                onChange={(e) => update("loyaltyPrograms", e.target.value)}
-                placeholder="e.g. SkyMiles #12345, Marriott Bonvoy"
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Dietary Requirements</label>
-              <input
-                type="text"
-                value={prefs.dietaryNeeds}
-                onChange={(e) => update("dietaryNeeds", e.target.value)}
-                placeholder="e.g. vegetarian, gluten-free"
-                className={inputClasses}
-              />
-            </div>
+            <FormInput
+              label="Loyalty Programs"
+              value={prefs.loyaltyPrograms}
+              onChange={(e) => update("loyaltyPrograms", e.target.value)}
+              placeholder="e.g. SkyMiles #12345, Marriott Bonvoy"
+            />
+            <FormInput
+              label="Dietary Requirements"
+              value={prefs.dietaryNeeds}
+              onChange={(e) => update("dietaryNeeds", e.target.value)}
+              placeholder="e.g. vegetarian, gluten-free"
+            />
             <div className="sm:col-span-2">
-              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Accessibility Needs</label>
-              <input
-                type="text"
+              <FormInput
+                label="Accessibility Needs"
                 value={prefs.accessibilityNeeds}
                 onChange={(e) => update("accessibilityNeeds", e.target.value)}
                 placeholder="e.g. wheelchair accessible, ground floor rooms"
-                className={inputClasses}
               />
             </div>
           </div>
@@ -194,15 +168,12 @@ export default function Settings({ onClose }: SettingsProps) {
         <p className="font-sans text-xs text-slate/60">Saved locally in your browser</p>
         <div className="flex items-center gap-3">
           {saved && <span className="font-sans text-xs text-success font-semibold">Saved</span>}
-          <button
-            onClick={handleSave}
-            className="px-5 py-3 lg:py-2 bg-navy text-cream font-sans text-sm font-semibold rounded-md hover:bg-navy-light btn-transition min-h-touch"
-          >
+          <Button variant="primary" size="md" onClick={handleSave}>
             Save Preferences
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 

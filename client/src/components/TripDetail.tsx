@@ -1,6 +1,10 @@
 "use client";
 
 import { ChevronLeft } from "lucide-react";
+import StatusBadge from "@/components/ui/StatusBadge";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import { DOMAIN_CONFIG } from "@/lib/design-tokens";
 
 interface BookingData {
   domain: string;
@@ -24,25 +28,8 @@ interface TripDetailProps {
   onBack?: () => void;
 }
 
-const domainLabels: Record<string, string> = {
-  flight: "Flight",
-  hotel: "Hotel",
-  transport: "Transport",
-  activity: "Activity",
-};
-
-const statusConfig: Record<string, { label: string; style: string }> = {
-  pending: { label: "Pending", style: "border-gold-light text-slate" },
-  running: { label: "Running", style: "border-gold text-gold" },
-  complete: { label: "Complete", style: "border-success-border text-success" },
-  completed: { label: "Complete", style: "border-success-border text-success" },
-  failed: { label: "Failed", style: "border-error text-error" },
-  cancelled: { label: "Cancelled", style: "border-gold-light text-slate" },
-};
-
 export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) {
   const bookings = trip.bookings || [];
-  const st = statusConfig[trip.status] || statusConfig.pending;
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "—";
@@ -63,16 +50,16 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
   const canCancel = trip.status === "pending" || trip.status === "running";
 
   return (
-    <div className="bg-white border border-gold-light/40 rounded-xl overflow-hidden shadow-sm">
+    <Card padding="none">
       <div className="p-6 border-b border-gold-light/30">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             {onBack && (
               <button
                 onClick={onBack}
-                className="font-sans text-xs font-medium text-slate hover:text-navy mb-3 flex items-center gap-1 min-h-touch btn-transition"
+                className="font-sans text-xs font-medium text-slate hover:text-navy mb-3 flex items-center gap-1 min-h-touch btn-transition focus:outline-none focus:ring-2 focus:ring-gold/30 rounded-md"
               >
-                <ChevronLeft className="h-3 w-3" />
+                <ChevronLeft className="h-3 w-3" aria-hidden="true" />
                 Back to timeline
               </button>
             )}
@@ -80,16 +67,11 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
             <p className="font-sans text-xs text-slate/60 mt-1">Created {formatDate(trip.created_at)}</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`px-2.5 py-0.5 border rounded-md font-sans text-xs font-medium ${st.style}`}>
-              {st.label}
-            </span>
+            <StatusBadge status={trip.status} />
             {canCancel && onCancel && (
-              <button
-                onClick={() => onCancel(trip.id)}
-                className="font-sans text-xs font-medium text-slate border border-gold-light/40 px-3 py-2 rounded-md hover:border-navy/20 hover:text-navy btn-transition min-h-touch"
-              >
+              <Button variant="secondary" size="sm" onClick={() => onCancel(trip.id)}>
                 Cancel Trip
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -109,7 +91,7 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
             <div className="flex-1 flex flex-wrap gap-2 justify-end">
               {Object.entries(costByDomain).map(([domain, total]) => (
                 <span key={domain} className="inline-flex items-center gap-1 px-2 py-1 border border-white/15 rounded text-xs">
-                  <span className="font-sans text-xs font-medium text-white/70">{domainLabels[domain] || domain}</span>
+                  <span className="font-sans text-xs font-medium text-cream/70">{DOMAIN_CONFIG[domain]?.label || domain}</span>
                   <span className="text-white/50 font-sans">${total.toFixed(0)}</span>
                 </span>
               ))}
@@ -135,7 +117,7 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
               <div key={idx} className="p-4 hover:bg-cream-dark btn-transition">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-sans text-xs font-semibold text-gold uppercase tracking-wide">
-                    {domainLabels[booking.domain] || booking.domain}
+                    {DOMAIN_CONFIG[booking.domain]?.label || booking.domain}
                   </span>
                   <span className="font-serif text-lg text-navy">${booking.amount.toFixed(2)}</span>
                 </div>
@@ -161,6 +143,6 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
           No booking details available for this trip.
         </div>
       )}
-    </div>
+    </Card>
   );
 }

@@ -3,6 +3,8 @@
 Returns Mock providers wrapped in FallbackProvider when USE_REAL_APIS=false.
 Returns real provider chains (primary + fallback) when USE_REAL_APIS=true.
 """
+from __future__ import annotations
+
 import os
 
 from providers.cache import ProviderCache

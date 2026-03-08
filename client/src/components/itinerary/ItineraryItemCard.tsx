@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { Plane, Hotel, Car, CheckCircle, ChevronDown } from "lucide-react";
 import type { ItineraryItem } from "@/lib/itinerary-types";
+import StatusBadge from "@/components/ui/StatusBadge";
+import Button from "@/components/ui/Button";
+import { DOMAIN_CONFIG } from "@/lib/design-tokens";
 
 interface ItineraryItemCardProps {
   item: ItineraryItem;
@@ -17,36 +20,12 @@ const domainIcons: Record<string, React.ElementType> = {
   activity: CheckCircle,
 };
 
-// Domain color system — matches TripTimeline and TripDetail
-const domainColors: Record<string, { border: string; bg: string; text: string }> = {
-  flight: { border: "border-blue-200", bg: "bg-blue-50", text: "text-blue-600" },
-  hotel: { border: "border-purple-200", bg: "bg-purple-50", text: "text-purple-600" },
-  transport: { border: "border-orange-200", bg: "bg-orange-50", text: "text-orange-600" },
-  activity: { border: "border-teal-200", bg: "bg-teal-50", text: "text-teal-600" },
-};
-
-const domainLabels: Record<string, string> = {
-  flight: "Flight",
-  hotel: "Hotel",
-  transport: "Transport",
-  activity: "Activity",
-};
-
-const statusBadgeStyles: Record<string, string> = {
-  confirmed: "border-success-border text-success",
-  awaiting_approval: "border-gold text-gold",
-  pending: "border-gold-light text-slate",
-  suggested: "border-blue-200 text-blue-600",
-  rejected: "border-error text-error",
-};
-
 export default function ItineraryItemCard({ item, tripId, onAction }: ItineraryItemCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const colors = domainColors[item.type] || domainColors.activity;
+  const config = DOMAIN_CONFIG[item.type] || DOMAIN_CONFIG.activity;
   const Icon = domainIcons[item.type] || domainIcons.activity;
-  const badgeStyle = statusBadgeStyles[item.status] || statusBadgeStyles.pending;
 
   const handleAction = async (action: string) => {
     setActionLoading(action);
@@ -59,26 +38,33 @@ export default function ItineraryItemCard({ item, tripId, onAction }: ItineraryI
 
   return (
     <div
-      className={`border border-gold-light/40 bg-white rounded-lg card-hover-bar cursor-pointer ${
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
+      className={`border border-gold-light/40 bg-white rounded-lg card-hover-bar cursor-pointer focus:outline-none focus:ring-2 focus:ring-gold/30 ${
         expanded ? "shadow-md" : ""
       }`}
       onClick={() => setExpanded(!expanded)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setExpanded(!expanded);
+        }
+      }}
     >
       {/* Collapsed view */}
       <div className="p-4 flex items-center gap-3">
-        {/* Domain icon */}
-        <span className={`flex-shrink-0 w-8 h-8 ${colors.bg} rounded-md flex items-center justify-center`}>
-          <Icon className={`h-4 w-4 ${colors.text}`} />
+        <span className={`flex-shrink-0 w-8 h-8 ${config.colors.bg} rounded-md flex items-center justify-center`}>
+          <Icon className={`h-4 w-4 ${config.colors.text}`} aria-hidden="true" />
         </span>
 
-        {/* Title + subtitle */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`font-sans text-[0.65rem] font-semibold ${colors.text}`}>
-              {domainLabels[item.type] || item.type}
+            <span className={`font-sans text-xs font-semibold ${config.colors.text}`}>
+              {config.label}
             </span>
             {item.badge && (
-              <span className="px-2 py-0.5 border border-gold rounded-md font-sans text-[0.6rem] font-medium text-gold">
+              <span className="px-2 py-0.5 border border-gold rounded-md font-sans text-[10px] font-medium text-gold">
                 {item.badge}
               </span>
             )}
@@ -87,31 +73,24 @@ export default function ItineraryItemCard({ item, tripId, onAction }: ItineraryI
           <p className="font-sans text-xs text-slate truncate">{item.subtitle}</p>
         </div>
 
-        {/* Time */}
         {item.time && (
           <span className="font-sans text-xs text-slate/60 flex-shrink-0">{item.time}</span>
         )}
 
-        {/* Cost */}
         <div className="text-right flex-shrink-0">
           <span className="font-serif text-lg text-navy">${item.cost.toFixed(0)}</span>
           {item.per_night && item.nights && (
-            <p className="font-sans text-[0.62rem] text-slate/60">
+            <p className="font-sans text-[10px] text-slate/60">
               {item.nights} night{item.nights > 1 ? "s" : ""}
             </p>
           )}
         </div>
 
-        {/* Status badge */}
-        <span
-          className={`px-2 py-0.5 border rounded-md font-sans text-[0.6rem] font-medium flex-shrink-0 ${badgeStyle}`}
-        >
-          {item.status.replace(/_/g, " ")}
-        </span>
+        <StatusBadge status={item.status} />
 
-        {/* Expand chevron */}
         <ChevronDown
           className={`h-4 w-4 text-slate/60 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+          aria-hidden="true"
         />
       </div>
 
@@ -125,58 +104,36 @@ export default function ItineraryItemCard({ item, tripId, onAction }: ItineraryI
           )}
 
           {item.provider && (
-            <p className="font-sans text-[0.62rem] text-slate/60 mb-3">via {item.provider}</p>
+            <p className="font-sans text-[10px] text-slate/60 mb-3">via {item.provider}</p>
           )}
 
-          {/* Action buttons based on status */}
           <div className="flex gap-2 pt-2 border-t border-gold-light/30">
             {item.status === "awaiting_approval" && (
               <>
-                <button
-                  onClick={() => handleAction("approve")}
-                  disabled={actionLoading === "approve"}
-                  className="px-4 py-2 bg-navy text-cream font-sans text-xs font-semibold rounded-md hover:bg-navy-light btn-transition min-h-touch disabled:opacity-50"
-                >
+                <Button variant="primary" size="sm" onClick={() => handleAction("approve")} disabled={actionLoading === "approve"}>
                   {actionLoading === "approve" ? "..." : "Approve"}
-                </button>
-                <button
-                  onClick={() => handleAction("reject")}
-                  disabled={actionLoading === "reject"}
-                  className="px-4 py-2 text-charcoal font-sans text-xs font-semibold border border-navy/20 rounded-md hover:bg-navy hover:text-cream btn-transition min-h-touch disabled:opacity-50"
-                >
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => handleAction("reject")} disabled={actionLoading === "reject"}>
                   {actionLoading === "reject" ? "..." : "Reject"}
-                </button>
-                <button
-                  onClick={() => handleAction("request_alternatives")}
-                  disabled={actionLoading === "request_alternatives"}
-                  className="px-4 py-2 text-slate font-sans text-xs font-semibold rounded-md hover:text-navy btn-transition min-h-touch disabled:opacity-50"
-                >
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleAction("request_alternatives")} disabled={actionLoading === "request_alternatives"}>
                   See Alternatives
-                </button>
+                </Button>
               </>
             )}
             {item.status === "confirmed" && (
-              <button
-                onClick={() => handleAction("reject")}
-                className="px-4 py-2 text-error font-sans text-xs font-semibold border border-error rounded-md hover:bg-error/5 btn-transition min-h-touch"
-              >
+              <Button variant="danger" size="sm" onClick={() => handleAction("reject")}>
                 Cancel Booking
-              </button>
+              </Button>
             )}
             {item.status === "suggested" && (
               <>
-                <button
-                  onClick={() => handleAction("approve")}
-                  className="px-4 py-2 bg-navy text-cream font-sans text-xs font-semibold rounded-md hover:bg-navy-light btn-transition min-h-touch"
-                >
+                <Button variant="primary" size="sm" onClick={() => handleAction("approve")}>
                   Add to Trip
-                </button>
-                <button
-                  onClick={() => handleAction("reject")}
-                  className="px-4 py-2 text-slate font-sans text-xs font-semibold rounded-md hover:text-navy btn-transition min-h-touch"
-                >
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleAction("reject")}>
                   Skip
-                </button>
+                </Button>
               </>
             )}
           </div>

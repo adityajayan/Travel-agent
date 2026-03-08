@@ -220,6 +220,31 @@ class ParseTripResponse(BaseModel):
     raw_input: str
 
 
+# ── Date Suggestions ─────────────────────────────────────────────────────────
+
+class DateSuggestRequest(BaseModel):
+    destination: str = Field(..., min_length=1, max_length=200)
+    duration_days: int = Field(5, ge=1, le=90)
+
+
+class DateSuggestion(BaseModel):
+    label: str
+    reason: str
+    departure_date: str
+    return_date: str
+
+
+class DateSuggestResponse(BaseModel):
+    suggestions: List[DateSuggestion] = Field(default_factory=list)
+
+
+# ── Nearest City ─────────────────────────────────────────────────────────────
+
+class NearestCityResponse(BaseModel):
+    city: str
+    country: str
+
+
 # ── Itinerary (Trip Artifact View) ────────────────────────────────────────────
 
 class ItineraryItem(BaseModel):

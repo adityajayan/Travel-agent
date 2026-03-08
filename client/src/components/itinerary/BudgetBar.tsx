@@ -1,31 +1,19 @@
 "use client";
 
 import type { BudgetBreakdown } from "@/lib/itinerary-types";
+import { BUDGET_CATEGORY_COLORS, BUDGET_CATEGORY_LABELS } from "@/lib/design-tokens";
+import Card from "@/components/ui/Card";
 
 interface BudgetBarProps {
   budget: BudgetBreakdown;
 }
-
-const categoryLabels: Record<string, string> = {
-  flight: "Flights",
-  hotel: "Hotels",
-  transport: "Transport",
-  activity: "Activities",
-};
-
-const categoryColors: Record<string, string> = {
-  flight: "bg-blue-500",
-  hotel: "bg-purple-500",
-  transport: "bg-orange-500",
-  activity: "bg-teal-500",
-};
 
 export default function BudgetBar({ budget }: BudgetBarProps) {
   const percentage = budget.total > 0 ? Math.min((budget.allocated / budget.total) * 100, 100) : 0;
   const isOverBudget = budget.total > 0 && budget.allocated > budget.total;
 
   return (
-    <div className="border border-gold-light/40 bg-white rounded-xl p-4 shadow-sm">
+    <Card>
       <p className="eyebrow mb-3">Budget</p>
 
       {/* Main progress bar */}
@@ -38,7 +26,7 @@ export default function BudgetBar({ budget }: BudgetBarProps) {
                 return (
                   <div
                     key={category}
-                    className={`h-full ${categoryColors[category] || "bg-gray-400"}`}
+                    className={`h-full ${BUDGET_CATEGORY_COLORS[category] || "bg-gray-400"}`}
                     style={{ width: `${catPct}%` }}
                   />
                 );
@@ -70,7 +58,7 @@ export default function BudgetBar({ budget }: BudgetBarProps) {
             >
               ${budget.remaining.toFixed(0)}
             </span>
-            <span className="font-sans text-[0.65rem] font-medium text-slate/60 ml-1">
+            <span className="font-sans text-xs font-medium text-slate/60 ml-1">
               remaining
             </span>
           </div>
@@ -83,9 +71,9 @@ export default function BudgetBar({ budget }: BudgetBarProps) {
           {Object.entries(budget.by_category).map(([category, amount]) => (
             <div key={category} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${categoryColors[category] || "bg-gray-400"}`} />
-                <span className="font-sans text-[0.65rem] font-medium text-slate">
-                  {categoryLabels[category] || category}
+                <span className={`w-2.5 h-2.5 rounded-full ${BUDGET_CATEGORY_COLORS[category] || "bg-gray-400"}`} />
+                <span className="font-sans text-xs font-medium text-slate">
+                  {BUDGET_CATEGORY_LABELS[category] || category}
                 </span>
               </div>
               <span className="font-sans text-sm text-charcoal">${amount.toFixed(0)}</span>
@@ -93,6 +81,6 @@ export default function BudgetBar({ budget }: BudgetBarProps) {
           ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
