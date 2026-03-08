@@ -18,9 +18,11 @@ import { Map, FileText, Clock } from "lucide-react";
 interface ItineraryViewProps {
   tripId: string;
   onBack?: () => void;
+  /** When true, hides the header (title/back/status) — parent handles it */
+  embedded?: boolean;
 }
 
-export default function ItineraryView({ tripId, onBack }: ItineraryViewProps) {
+export default function ItineraryView({ tripId, onBack, embedded }: ItineraryViewProps) {
   const [itinerary, setItinerary] = useState<TripItinerary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -121,15 +123,25 @@ export default function ItineraryView({ tripId, onBack }: ItineraryViewProps) {
 
   return (
     <div>
-      <ItineraryHeader
-        title={itinerary.title}
-        subtitle={itinerary.subtitle}
-        status={itinerary.status}
-        pendingCount={pendingCount}
-        onApproveAll={handleApproveAll}
-      />
+      {!embedded && (
+        <ItineraryHeader
+          title={itinerary.title}
+          subtitle={itinerary.subtitle}
+          status={itinerary.status}
+          pendingCount={pendingCount}
+          onApproveAll={handleApproveAll}
+        />
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
+      {embedded && pendingCount > 0 && (
+        <div className="flex items-center justify-end mb-3">
+          <Button variant="primary" size="sm" onClick={handleApproveAll}>
+            Approve All ({pendingCount})
+          </Button>
+        </div>
+      )}
+
+      <div className={`grid grid-cols-1 ${embedded ? "gap-4" : "lg:grid-cols-[1fr_380px] gap-6"}`}>
         {/* Left panel */}
         <div>
           <ItineraryTabBar activeTab={activeTab} onTabChange={setActiveTab} />
