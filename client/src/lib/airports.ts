@@ -115,6 +115,25 @@ const AIRPORTS: Airport[] = [
   { city: "Santiago", code: "SCL", country: "CL" },
 ];
 
+/** Return a set of popular hub airports for initial display when field is empty */
+export function popularAirports(limit = 6): Airport[] {
+  const hubs = ["JFK", "LAX", "SFO", "LHR", "ORD", "ATL", "DXB", "SIN", "NRT", "CDG"];
+  return AIRPORTS.filter((a) => hubs.includes(a.code)).slice(0, limit);
+}
+
+/** Find the best matching airport for a city name (for pre-fill resolution) */
+export function resolveAirport(cityName: string): Airport | null {
+  if (!cityName) return null;
+  const q = cityName.toLowerCase().trim();
+  const exact = AIRPORTS.find((a) => a.city.toLowerCase() === q);
+  if (exact) return exact;
+  const code = AIRPORTS.find((a) => a.code.toLowerCase() === q);
+  if (code) return code;
+  const starts = AIRPORTS.find((a) => a.city.toLowerCase().startsWith(q));
+  if (starts) return starts;
+  return null;
+}
+
 export function searchAirports(query: string, limit = 5): Airport[] {
   if (!query || query.length < 1) return [];
   const q = query.toLowerCase().trim();

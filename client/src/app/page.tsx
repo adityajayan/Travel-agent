@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { Settings as SettingsIcon, LogOut } from "lucide-react";
 import TripForm from "@/components/TripForm";
 import TripTimeline from "@/components/TripTimeline";
 import TripList from "@/components/TripList";
-import TripDetail from "@/components/TripDetail";
 import ItineraryView from "@/components/itinerary/ItineraryView";
 import Settings, { getSavedPreferences } from "@/components/Settings";
 import BottomNav from "@/components/BottomNav";
@@ -56,7 +54,6 @@ type TripView = "list" | "timeline" | "detail";
 type View = "timeline" | "detail" | "settings";
 
 export default function Home() {
-  const router = useRouter();
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
   const [events, setEvents] = useState<TripEvent[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -251,9 +248,7 @@ export default function Home() {
     touchStartRef.current = null;
 
     if (dx > 80 && dy < dx * 0.5) {
-      if (tripView === "detail" && mobileTab === "trips") {
-        setTripView("timeline");
-      } else if (tripView === "timeline" && mobileTab === "trips") {
+      if ((tripView === "detail" || tripView === "timeline") && mobileTab === "trips") {
         handleBackToList();
       } else if (view === "settings") {
         setView("timeline");
@@ -376,23 +371,11 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
             <div className="col-span-2 space-y-6">
               <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "planning"} activeTripSelected={!!activeTrip} />
 
-              {activeTrip && view === "detail" && (
-                <ItineraryView
-                  tripId={activeTrip.id}
-                  onBack={() => setView("timeline")}
-                />
-              )}
-
-              {activeTrip && view === "timeline" && (
+              {activeTrip && (
                 <Card hover padding="md">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-serif text-xl font-medium text-navy">{activeTrip.goal}</h2>
+                    <h2 className="font-serif text-xl font-medium text-navy truncate flex-1 mr-3">{activeTrip.goal}</h2>
                     <div className="flex items-center gap-2">
-                      {activeTrip.status === "complete" && (
-                        <Button variant="ghost" size="sm" onClick={() => router.push(`/trips/${activeTrip.id}`)} className="text-gold border border-gold-light hover:bg-gold/8">
-                          View Details
-                        </Button>
-                      )}
                       {activeTrip.status === "failed" && (
                         <Button variant="primary" size="sm" onClick={() => handleRetryTrip(activeTrip.id)}>
                           Retry
@@ -406,12 +389,46 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                       <TripStatusBadge status={activeTrip.status} connected={connected} />
                     </div>
                   </div>
-                  <TripTimeline
-                    events={events}
-                    onApproval={handleApproval}
-                    onClarification={handleClarification}
-                    tripId={activeTrip.id}
-                  />
+
+                  {/* View toggle tabs */}
+                  <div className="flex gap-1 mb-4 border-b border-gold-light/30">
+                    <button
+                      onClick={() => setView("timeline")}
+                      className={`px-3 py-2 font-sans text-xs font-medium btn-transition border-b-2 -mb-px ${
+                        view === "timeline"
+                          ? "border-gold text-navy"
+                          : "border-transparent text-slate/60 hover:text-navy"
+                      }`}
+                    >
+                      Live
+                    </button>
+                    <button
+                      onClick={() => setView("detail")}
+                      className={`px-3 py-2 font-sans text-xs font-medium btn-transition border-b-2 -mb-px ${
+                        view === "detail"
+                          ? "border-gold text-navy"
+                          : "border-transparent text-slate/60 hover:text-navy"
+                      }`}
+                    >
+                      Details
+                    </button>
+                  </div>
+
+                  {view === "timeline" && (
+                    <TripTimeline
+                      events={events}
+                      onApproval={handleApproval}
+                      onClarification={handleClarification}
+                      tripId={activeTrip.id}
+                    />
+                  )}
+
+                  {view === "detail" && (
+                    <ItineraryView
+                      tripId={activeTrip.id}
+                      embedded
+                    />
+                  )}
                 </Card>
               )}
             </div>
@@ -432,22 +449,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
               />
             )}
 
-            {tripView === "detail" && activeTrip && (
-              <div>
-                <button
-                  onClick={handleBackToList}
-                  className="font-sans text-sm font-medium text-gold hover:text-gold-dark btn-transition mb-3 flex items-center gap-1 min-h-touch"
-                >
-                  <span className="text-lg leading-none">&larr;</span> Back to Trips
-                </button>
-                <ItineraryView
-                  tripId={activeTrip.id}
-                  onBack={handleBackToList}
-                />
-              </div>
-            )}
-
-            {tripView === "timeline" && activeTrip && (
+            {(tripView === "detail" || tripView === "timeline") && activeTrip && (
               <div>
                 <button
                   onClick={handleBackToList}
@@ -459,11 +461,6 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-serif text-base font-medium text-navy truncate flex-1 mr-2">{activeTrip.goal}</h2>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {activeTrip.status === "complete" && (
-                        <Button variant="ghost" size="sm" onClick={() => { setTripView("detail"); setView("detail"); }} className="text-gold border border-gold-light hover:bg-gold/8">
-                          Details
-                        </Button>
-                      )}
                       {activeTrip.status === "failed" && (
                         <Button variant="primary" size="sm" onClick={() => handleRetryTrip(activeTrip.id)}>
                           Retry
@@ -477,12 +474,46 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                       <TripStatusBadge status={activeTrip.status} connected={connected} />
                     </div>
                   </div>
-                  <TripTimeline
-                    events={events}
-                    onApproval={handleApproval}
-                    onClarification={handleClarification}
-                    tripId={activeTrip.id}
-                  />
+
+                  {/* View toggle tabs */}
+                  <div className="flex gap-1 mb-3 border-b border-gold-light/30">
+                    <button
+                      onClick={() => { setTripView("timeline"); setView("timeline"); }}
+                      className={`px-3 py-2 font-sans text-xs font-medium btn-transition border-b-2 -mb-px ${
+                        tripView === "timeline"
+                          ? "border-gold text-navy"
+                          : "border-transparent text-slate/60 hover:text-navy"
+                      }`}
+                    >
+                      Live
+                    </button>
+                    <button
+                      onClick={() => { setTripView("detail"); setView("detail"); }}
+                      className={`px-3 py-2 font-sans text-xs font-medium btn-transition border-b-2 -mb-px ${
+                        tripView === "detail"
+                          ? "border-gold text-navy"
+                          : "border-transparent text-slate/60 hover:text-navy"
+                      }`}
+                    >
+                      Details
+                    </button>
+                  </div>
+
+                  {tripView === "timeline" && (
+                    <TripTimeline
+                      events={events}
+                      onApproval={handleApproval}
+                      onClarification={handleClarification}
+                      tripId={activeTrip.id}
+                    />
+                  )}
+
+                  {tripView === "detail" && (
+                    <ItineraryView
+                      tripId={activeTrip.id}
+                      embedded
+                    />
+                  )}
                 </Card>
               </div>
             )}

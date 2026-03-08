@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Plus, ChevronUp } from "lucide-react";
 import VoiceInputButton from "./VoiceInputButton";
 import { CreateTripOptions, ParseTripResponse, ParsedTripParams, DateSuggestion, apiClient } from "@/lib/api";
-import { searchAirports, Airport } from "@/lib/airports";
+import { searchAirports, popularAirports, resolveAirport, Airport } from "@/lib/airports";
 import { getSavedPreferences } from "./Settings";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -260,7 +260,7 @@ function TripConfirmation({
   const [showOriginDropdown, setShowOriginDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const originDropdownRef = useRef<HTMLDivElement>(null);
-  const [datesExpanded, setDatesExpanded] = useState(!!(p.departure_date || p.return_date));
+  const [datesExpanded, setDatesExpanded] = useState(false);
 
   const hasFlights = domains.includes("flight");
   const originMissing = hasFlights && !origin.trim();
@@ -285,13 +285,14 @@ function TripConfirmation({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pre-fill origin: saved prefs > geolocation
+  // Pre-fill origin: saved prefs > geolocation — resolve to airport format
   useEffect(() => {
     if (origin) return;
 
     const prefs = getSavedPreferences();
     if (prefs.departureCity) {
-      setOrigin(prefs.departureCity);
+      const airport = resolveAirport(prefs.departureCity);
+      setOrigin(airport ? `${airport.city} (${airport.code})` : prefs.departureCity);
       return;
     }
 
@@ -301,7 +302,8 @@ function TripConfirmation({
       async (pos) => {
         try {
           const res = await apiClient.nearestCity(pos.coords.latitude, pos.coords.longitude);
-          setOrigin(res.city);
+          const airport = resolveAirport(res.city);
+          setOrigin(airport ? `${airport.city} (${airport.code})` : res.city);
         } catch { /* ignore */ }
         setGeoLoading(false);
       },
@@ -330,7 +332,6 @@ function TripConfirmation({
     setDepartureDate(s.departure_date);
     setReturnDate(s.return_date);
     setDateSuggestions([]);
-    setDatesExpanded(true);
   };
 
   const handleOriginChange = (value: string) => {
@@ -341,13 +342,31 @@ function TripConfirmation({
       setShowOriginDropdown(results.length > 0);
       setHighlightedIndex(-1);
     } else {
-      setOriginSuggestions([]);
-      setShowOriginDropdown(false);
+      // Show popular airports when field is cleared
+      const popular = popularAirports();
+      setOriginSuggestions(popular);
+      setShowOriginDropdown(true);
+      setHighlightedIndex(-1);
+    }
+  };
+
+  const handleOriginFocus = () => {
+    if (origin.trim().length >= 1) {
+      const results = searchAirports(origin);
+      if (results.length > 0) {
+        setOriginSuggestions(results);
+        setShowOriginDropdown(true);
+      }
+    } else {
+      // Show popular airports on focus when empty
+      const popular = popularAirports();
+      setOriginSuggestions(popular);
+      setShowOriginDropdown(true);
     }
   };
 
   const selectAirport = (airport: Airport) => {
-    setOrigin(airport.city);
+    setOrigin(`${airport.city} (${airport.code})`);
     setShowOriginDropdown(false);
     setOriginSuggestions([]);
   };
@@ -371,7 +390,7 @@ function TripConfirmation({
   const handleSubmit = () => {
     const params: ParsedTripParams = {
       destinations,
-      origin: origin.trim() || null,
+      origin: origin.trim().replace(/\s*\([A-Z]{3}\)$/, "") || null,
       departure_date: departureDate || null,
       return_date: returnDate || null,
       duration_days: durationDays || null,
@@ -454,7 +473,7 @@ function TripConfirmation({
             value={origin}
             onChange={(e) => handleOriginChange(e.target.value)}
             onKeyDown={handleOriginKeyDown}
-            onFocus={() => { if (originSuggestions.length > 0) setShowOriginDropdown(true); }}
+            onFocus={handleOriginFocus}
             onBlur={() => { setTimeout(() => setShowOriginDropdown(false), 150); }}
             placeholder={geoLoading ? "Detecting location\u2026" : "City name or airport code (e.g. SFO)"}
             className={`w-full border rounded-md px-2.5 py-1.5 text-xs font-sans text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream ${
@@ -491,9 +510,10 @@ function TripConfirmation({
       <div className="mb-4">
         <label className="block text-xs font-sans font-semibold text-navy mb-1.5">Travel Dates</label>
 
-        {/* Date suggestions — shown above date fields */}
+        {/* Suggested dates — prominent pills */}
         {dateSuggestions.length > 0 && (
           <div className="mb-2">
+            <p className="text-[10px] font-sans text-slate/60 mb-1">Suggested dates</p>
             <div className="flex flex-wrap gap-2">
               {dateSuggestions.map((s, i) => (
                 <button
@@ -510,39 +530,55 @@ function TripConfirmation({
           </div>
         )}
 
+        {/* Selected dates summary + expand toggle */}
+        {departureDate && !datesExpanded && (
+          <div className="flex items-center gap-2 mb-1.5 px-2.5 py-1.5 bg-cream-dark rounded-md border border-navy/10">
+            <span className="text-xs font-sans text-navy font-medium">{departureDate}{returnDate ? ` \u2013 ${returnDate}` : ""}</span>
+            <button type="button" onClick={() => setDatesExpanded(true)} className="text-xs font-sans text-gold hover:text-gold-dark btn-transition ml-auto">Edit</button>
+          </div>
+        )}
+
         {/* Collapsible date inputs */}
-        <button
-          type="button"
-          onClick={() => setDatesExpanded(!datesExpanded)}
-          className="text-xs font-sans font-medium text-gold hover:text-gold-dark btn-transition mb-1.5 flex items-center gap-1"
-        >
-          {datesExpanded ? "Hide specific dates \u25B2" : "Set specific dates \u25BC"}
-          {departureDate && !datesExpanded && (
-            <span className="text-slate/60 ml-1">{departureDate}{returnDate ? ` \u2013 ${returnDate}` : ""}</span>
-          )}
-        </button>
+        {!departureDate && !datesExpanded && (
+          <button
+            type="button"
+            onClick={() => setDatesExpanded(true)}
+            className="text-xs font-sans font-medium text-gold hover:text-gold-dark btn-transition mb-1.5 flex items-center gap-1"
+          >
+            Set specific dates &darr;
+          </button>
+        )}
 
         {datesExpanded && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-sans text-slate mb-0.5">Departure</label>
-              <input
-                type="date"
-                value={departureDate}
-                onChange={(e) => setDepartureDate(e.target.value)}
-                className="w-full border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
+          <div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-sans text-slate mb-0.5">Departure</label>
+                <input
+                  type="date"
+                  value={departureDate}
+                  onChange={(e) => setDepartureDate(e.target.value)}
+                  className="w-full border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-gold/30"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-slate mb-0.5">Return</label>
+                <input
+                  type="date"
+                  value={returnDate}
+                  onChange={(e) => setReturnDate(e.target.value)}
+                  min={departureDate || undefined}
+                  className="w-full border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-gold/30"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-sans text-slate mb-0.5">Return</label>
-              <input
-                type="date"
-                value={returnDate}
-                onChange={(e) => setReturnDate(e.target.value)}
-                min={departureDate || undefined}
-                className="w-full border border-navy/20 bg-cream rounded-md px-2.5 py-1.5 text-xs font-sans text-navy focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => setDatesExpanded(false)}
+              className="text-xs font-sans font-medium text-slate/60 hover:text-navy btn-transition mt-1.5 flex items-center gap-1"
+            >
+              Collapse &uarr;
+            </button>
           </div>
         )}
       </div>
