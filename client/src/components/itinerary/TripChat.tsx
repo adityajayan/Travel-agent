@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { ChevronDown, Send, MessageCircle } from "lucide-react";
 import type { ChatMessage } from "@/lib/itinerary-types";
 import { apiClient } from "@/lib/api";
 
@@ -87,37 +88,32 @@ export default function TripChat({ tripId }: TripChatProps) {
   };
 
   return (
-    <div className="border-2 border-border-heavy bg-white shadow-hard-sm flex flex-col">
-      {/* Chat header — inverted */}
+    <div className="border border-gold-light/40 bg-white rounded-xl shadow-sm flex flex-col overflow-hidden">
+      {/* Chat header */}
       <button
-        className="bg-contrast px-4 py-2.5 flex items-center justify-between w-full"
+        className="bg-navy rounded-t-xl px-4 py-2.5 flex items-center justify-between w-full"
         onClick={() => setCollapsed(!collapsed)}
       >
         <div className="flex items-center gap-2">
-          <span className="w-6 h-6 bg-paper flex items-center justify-center flex-shrink-0">
-            <span className="font-display text-contrast text-xs font-medium">C</span>
+          <span className="w-6 h-6 bg-cream rounded-md flex items-center justify-center flex-shrink-0">
+            <MessageCircle className="h-3.5 w-3.5 text-navy" />
           </span>
-          <span className="font-ui text-[0.72rem] font-bold uppercase tracking-[0.14em] text-paper">
+          <span className="font-sans text-xs font-semibold text-cream">
             Chat with Concierge
           </span>
         </div>
-        <svg
-          className={`h-4 w-4 text-paper/50 transition-transform ${collapsed ? "" : "rotate-180"}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        <ChevronDown
+          className={`h-4 w-4 text-cream/50 transition-transform ${collapsed ? "" : "rotate-180"}`}
+        />
       </button>
 
       {!collapsed && (
         <>
           {/* Messages area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-80 min-h-[200px] bg-paper">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-80 min-h-[200px] bg-cream">
             {messages.length === 0 && (
               <div className="text-center py-6">
-                <p className="font-body text-sm text-text-ghost">
+                <p className="font-sans text-sm text-slate/60">
                   Ask Concierge about your trip
                 </p>
               </div>
@@ -128,13 +124,13 @@ export default function TripChat({ tripId }: TripChatProps) {
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} stagger-fade-up`}
               >
                 <div
-                  className={`max-w-[85%] px-3 py-2 ${
+                  className={`max-w-[85%] px-3 py-2 rounded-lg ${
                     msg.role === "user"
-                      ? "bg-contrast text-paper"
-                      : "bg-white border-[1.5px] border-border-light"
+                      ? "bg-navy text-cream"
+                      : "bg-white border border-gold-light/40"
                   }`}
                 >
-                  <p className={`font-body text-sm font-light ${msg.role === "user" ? "" : "text-text-mid"}`}>
+                  <p className={`font-sans text-sm ${msg.role === "user" ? "" : "text-charcoal"}`}>
                     {msg.content}
                   </p>
                 </div>
@@ -142,11 +138,11 @@ export default function TripChat({ tripId }: TripChatProps) {
             ))}
             {sending && (
               <div className="flex justify-start">
-                <div className="bg-white border-[1.5px] border-border-light px-3 py-2">
+                <div className="bg-white border border-gold-light/40 px-3 py-2 rounded-lg">
                   <div className="flex gap-1.5">
-                    <span className="h-2 w-2 bg-border-heavy animate-pulse-dot" />
-                    <span className="h-2 w-2 bg-border-heavy animate-pulse-dot" style={{ animationDelay: "0.3s" }} />
-                    <span className="h-2 w-2 bg-border-heavy animate-pulse-dot" style={{ animationDelay: "0.6s" }} />
+                    <span className="h-2 w-2 rounded-full bg-navy/20 animate-pulse-dot" />
+                    <span className="h-2 w-2 rounded-full bg-navy/20 animate-pulse-dot" style={{ animationDelay: "0.3s" }} />
+                    <span className="h-2 w-2 rounded-full bg-navy/20 animate-pulse-dot" style={{ animationDelay: "0.6s" }} />
                   </div>
                 </div>
               </div>
@@ -155,12 +151,12 @@ export default function TripChat({ tripId }: TripChatProps) {
           </div>
 
           {/* Quick actions */}
-          <div className="px-4 py-2 flex gap-2 flex-wrap border-t border-border-light">
+          <div className="px-4 py-2 flex gap-2 flex-wrap border-t border-gold-light/30">
             {quickActions.map((action) => (
               <button
                 key={action}
                 onClick={() => setInput(action)}
-                className="px-2.5 py-1 border-[1.5px] border-accent-border font-ui text-[0.6rem] font-bold uppercase tracking-[0.1em] text-accent hover:bg-accent-soft btn-transition"
+                className="px-2.5 py-1 border border-gold rounded-md font-sans text-[0.6rem] font-medium text-gold hover:bg-gold/8 btn-transition"
               >
                 {action}
               </button>
@@ -168,7 +164,7 @@ export default function TripChat({ tripId }: TripChatProps) {
           </div>
 
           {/* Input area */}
-          <div className="p-3 border-t border-border-light flex gap-2">
+          <div className="p-3 border-t border-gold-light/30 flex gap-2">
             <input
               type="text"
               value={input}
@@ -176,13 +172,14 @@ export default function TripChat({ tripId }: TripChatProps) {
               onKeyDown={handleKeyDown}
               placeholder="Ask about your trip..."
               disabled={sending}
-              className="flex-1 border-2 border-border-heavy bg-paper px-3 py-2 text-sm font-body text-text-primary placeholder:text-text-ghost focus:outline-none focus:border-accent disabled:opacity-50"
+              className="flex-1 border border-navy/20 bg-cream rounded-md px-3 py-2 text-sm font-sans text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold disabled:opacity-50"
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || sending}
-              className="px-4 py-2 bg-contrast text-paper font-ui text-xs font-bold uppercase tracking-[0.1em] hover:bg-accent btn-transition min-h-touch disabled:opacity-50"
+              className="px-4 py-2 bg-navy text-cream font-sans text-xs font-semibold rounded-md hover:bg-navy-light btn-transition min-h-touch disabled:opacity-50 flex items-center gap-1.5"
             >
+              <Send className="h-3.5 w-3.5" />
               Send
             </button>
           </div>

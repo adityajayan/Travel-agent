@@ -26,21 +26,21 @@ export default function ItineraryDaySection({
       {/* Day header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
-          <span className="font-ui text-[0.72rem] font-bold uppercase tracking-[0.14em] text-accent">
+          <span className="font-sans text-xs font-semibold text-gold">
             {day.date}
           </span>
-          <span className="font-body text-sm text-text-mid font-light">
+          <span className="font-sans text-sm text-charcoal">
             {day.label}
           </span>
-          <span className="font-body text-xs text-text-ghost">{day.city}</span>
+          <span className="font-sans text-xs text-slate/60">{day.city}</span>
         </div>
-        <span className="font-display text-base text-contrast">
+        <span className="font-serif text-base text-navy">
           ${dayCost.toFixed(0)}
         </span>
       </div>
 
       {/* Divider */}
-      <div className="h-[2px] bg-border-heavy mb-4" />
+      <div className="h-px bg-navy/20 mb-4" />
 
       {/* Item cards */}
       <div className="space-y-3">

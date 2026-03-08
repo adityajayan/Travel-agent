@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Settings as SettingsIcon, LogOut } from "lucide-react";
 import TripForm from "@/components/TripForm";
 import TripTimeline from "@/components/TripTimeline";
 import TripList from "@/components/TripList";
@@ -45,7 +46,6 @@ export interface Trip {
   result?: Record<string, unknown>;
 }
 
-// Mobile tab maps to views: "trips" = list, "plan" = form, "timeline" = live, "settings" = settings
 type MobileTab = "trips" | "plan" | "timeline" | "settings";
 type View = "timeline" | "detail" | "settings";
 
@@ -58,7 +58,6 @@ export default function Home() {
   const [view, setView] = useState<View>("timeline");
   const [mobileTab, setMobileTab] = useState<MobileTab>("plan");
 
-  // Swipe gesture state
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
 
@@ -66,14 +65,12 @@ export default function Home() {
   const { toast } = useToast();
   const { supported: pushSupported, subscribed: pushSubscribed, subscribe: pushSubscribe } = usePushNotifications();
 
-  // Check whether the backend requires auth
   useEffect(() => {
     apiClient.checkAuth().then((status) => {
       setAuthStatus(status);
     });
   }, [isAuthenticated]);
 
-  // Auto-subscribe to push notifications when supported
   useEffect(() => {
     if (pushSupported && !pushSubscribed) {
       fetch("/api/push/vapid-key")
@@ -194,7 +191,6 @@ export default function Home() {
     }
   };
 
-  // ── Swipe gesture: swipe right from left edge navigates back ─────────────
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
     if (touch.clientX < 30) {
@@ -221,50 +217,48 @@ export default function Home() {
     }
   }, [view, mobileTab]);
 
-  // Show login form only if backend explicitly returns 401
   if (authStatus === "auth_required" && !isAuthenticated) {
     return (
       <main className="max-w-4xl mx-auto px-4 py-8 safe-area-x">
         <header className="mb-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-contrast flex items-center justify-center">
-              <span className="font-display text-white text-lg font-medium">C</span>
+            <div className="w-10 h-10 bg-navy rounded-lg flex items-center justify-center">
+              <span className="font-serif text-white text-lg font-medium">C</span>
             </div>
-            <span className="font-ui text-[0.9rem] font-bold uppercase tracking-[0.1em] text-contrast">Concierge</span>
+            <span className="font-sans text-lg font-semibold text-navy">Concierge</span>
           </div>
-          <p className="text-text-muted mt-3 font-body text-sm font-light">Tell us what you want. We&apos;ll handle everything.</p>
+          <p className="text-slate mt-3 font-sans text-sm">Tell us what you want. We&apos;ll handle everything.</p>
         </header>
         <LoginForm />
       </main>
     );
   }
 
-  // Show backend unavailable banner
   if (authStatus === "unavailable") {
     return (
       <main className="max-w-4xl mx-auto px-4 py-8 safe-area-x">
         <header className="mb-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-contrast flex items-center justify-center">
-              <span className="font-display text-white text-lg font-medium">C</span>
+            <div className="w-10 h-10 bg-navy rounded-lg flex items-center justify-center">
+              <span className="font-serif text-white text-lg font-medium">C</span>
             </div>
-            <span className="font-ui text-[0.9rem] font-bold uppercase tracking-[0.1em] text-contrast">Concierge</span>
+            <span className="font-sans text-lg font-semibold text-navy">Concierge</span>
           </div>
         </header>
-        <div className="bg-accent-soft border-2 border-accent-border p-6 text-center">
+        <div className="bg-gold/8 border border-gold-light rounded-xl p-6 text-center">
           <p className="eyebrow justify-center mb-3">System Status</p>
-          <h2 className="font-display text-xl text-contrast mb-2">Backend Not Running</h2>
-          <p className="text-sm text-text-muted font-body font-light mb-4">
+          <h2 className="font-serif text-xl text-navy mb-2">Backend Not Running</h2>
+          <p className="text-sm text-slate font-sans mb-4">
             The backend server is not reachable. Make sure it&apos;s running before using the app.
           </p>
-          <pre className="bg-paper-elevated p-3 text-xs text-left text-text-mid overflow-x-auto mb-4 border border-border-light font-mono">
+          <pre className="bg-cream-dark p-3 text-xs text-left text-charcoal overflow-x-auto mb-4 border border-gold-light/40 rounded-lg font-mono">
 {`# In a separate terminal, from the project root:
 pip install -r requirements.txt
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
           </pre>
           <button
             onClick={() => apiClient.checkAuth().then(setAuthStatus)}
-            className="px-6 py-3 bg-contrast text-paper font-ui text-xs font-bold uppercase tracking-[0.1em] hover:bg-accent btn-transition min-h-touch"
+            className="px-6 py-3 bg-navy text-cream font-sans text-sm font-semibold rounded-md hover:bg-navy-light btn-transition min-h-touch"
           >
             Retry Connection
           </button>
@@ -280,33 +274,34 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ── Navigation header ──────────────────────────────────────────────── */}
-      <header className="mb-6 lg:mb-8 flex items-center justify-between border-b-2 border-border-heavy pb-4">
+      <header className="mb-6 lg:mb-8 flex items-center justify-between border-b border-gold-light/40 pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-contrast flex items-center justify-center">
-            <span className="font-display text-paper text-lg font-medium">C</span>
+          <div className="w-10 h-10 bg-navy rounded-lg flex items-center justify-center">
+            <span className="font-serif text-cream text-lg font-medium">C</span>
           </div>
           <div>
-            <span className="font-ui text-[0.9rem] font-bold uppercase tracking-[0.1em] text-contrast block leading-tight">Concierge</span>
-            <span className="text-text-ghost font-body text-[0.62rem] block">Travel, handled for you</span>
+            <span className="font-sans text-lg font-semibold text-navy block leading-tight">Concierge</span>
+            <span className="text-slate/60 font-sans text-xs block">Travel, handled for you</span>
           </div>
         </div>
         <div className="hidden lg:flex items-center gap-3">
           <button
             onClick={() => setView(view === "settings" ? "timeline" : "settings")}
-            className={`font-ui text-xs font-semibold uppercase tracking-[0.08em] px-4 py-2 border-2 btn-transition ${
+            className={`font-sans text-sm font-medium px-4 py-2 border rounded-md btn-transition flex items-center gap-1.5 ${
               view === "settings"
-                ? "bg-contrast text-paper border-contrast"
-                : "text-text-mid hover:text-contrast border-border-heavy hover:bg-contrast hover:text-paper"
+                ? "bg-navy text-cream border-navy"
+                : "text-charcoal hover:text-navy border-navy/20 hover:bg-navy hover:text-cream"
             }`}
           >
+            <SettingsIcon className="h-4 w-4" />
             Settings
           </button>
           {isAuthenticated && (
             <button
               onClick={logout}
-              className="font-ui text-xs font-semibold uppercase tracking-[0.08em] text-text-muted hover:text-contrast border-2 border-border-light hover:border-border-heavy px-4 py-2 btn-transition"
+              className="font-sans text-sm font-medium text-slate hover:text-navy border border-gold-light/40 hover:border-navy/20 px-4 py-2 rounded-md btn-transition flex items-center gap-1.5"
             >
+              <LogOut className="h-4 w-4" />
               Sign Out
             </button>
           )}
@@ -314,14 +309,15 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
         {isAuthenticated && (
           <button
             onClick={logout}
-            className="lg:hidden font-ui text-xs font-semibold uppercase tracking-[0.08em] text-text-muted border-2 border-border-light px-3 py-2 btn-transition min-h-touch flex items-center"
+            className="lg:hidden font-sans text-xs font-medium text-slate border border-gold-light/40 px-3 py-2 rounded-md btn-transition min-h-touch flex items-center gap-1"
           >
+            <LogOut className="h-3.5 w-3.5" />
             Sign Out
           </button>
         )}
       </header>
 
-      {/* ── Desktop layout ──────────────────────────────────────────────────── */}
+      {/* Desktop layout */}
       <div className="hidden lg:block">
         {view === "settings" ? (
           <Settings onClose={() => setView("timeline")} />
@@ -347,14 +343,14 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
               )}
 
               {activeTrip && view === "timeline" && (
-                <div className="bg-white border-2 border-border-heavy p-6 card-hover-bar">
+                <div className="bg-white border border-gold-light/40 rounded-xl p-6 shadow-sm card-hover-bar">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-display text-xl font-medium">{activeTrip.goal}</h2>
+                    <h2 className="font-serif text-xl font-medium text-navy">{activeTrip.goal}</h2>
                     <div className="flex items-center gap-2">
                       {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
                         <button
                           onClick={() => router.push(`/trips/${activeTrip.id}`)}
-                          className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-accent border-2 border-accent-border px-3 py-1.5 hover:bg-accent-soft btn-transition"
+                          className="font-sans text-xs font-semibold text-gold border border-gold-light px-3 py-1.5 rounded-md hover:bg-gold/8 btn-transition"
                         >
                           View Details
                         </button>
@@ -362,7 +358,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                       {(activeTrip.status === "pending" || activeTrip.status === "running") && (
                         <button
                           onClick={() => handleCancelTrip(activeTrip.id)}
-                          className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-text-muted border-2 border-border-light px-3 py-1.5 hover:border-border-heavy btn-transition"
+                          className="font-sans text-xs font-medium text-slate border border-gold-light/40 px-3 py-1.5 rounded-md hover:border-navy/20 btn-transition"
                         >
                           Cancel
                         </button>
@@ -383,7 +379,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
         )}
       </div>
 
-      {/* ── Mobile layout (tab-driven) ──────────────────────────────────────── */}
+      {/* Mobile layout */}
       <div className="lg:hidden">
         {mobileTab === "trips" && (
           <TripList
@@ -409,14 +405,14 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
             )}
 
             {activeTrip && view === "timeline" && (
-              <div className="bg-white border-2 border-border-heavy p-4 card-hover-bar">
+              <div className="bg-white border border-gold-light/40 rounded-xl p-4 shadow-sm card-hover-bar">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-display text-base font-medium truncate flex-1 mr-2">{activeTrip.goal}</h2>
+                  <h2 className="font-serif text-base font-medium text-navy truncate flex-1 mr-2">{activeTrip.goal}</h2>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
                       <button
                         onClick={() => router.push(`/trips/${activeTrip.id}`)}
-                        className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-accent border-2 border-accent-border px-2 py-1.5 btn-transition min-h-touch flex items-center"
+                        className="font-sans text-xs font-semibold text-gold border border-gold-light px-2 py-1.5 rounded-md btn-transition min-h-touch flex items-center"
                       >
                         Details
                       </button>
@@ -424,7 +420,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                     {(activeTrip.status === "pending" || activeTrip.status === "running") && (
                       <button
                         onClick={() => handleCancelTrip(activeTrip.id)}
-                        className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-text-muted border-2 border-border-light px-2 py-1.5 btn-transition min-h-touch flex items-center"
+                        className="font-sans text-xs font-medium text-slate border border-gold-light/40 px-2 py-1.5 rounded-md btn-transition min-h-touch flex items-center"
                       >
                         Cancel
                       </button>
@@ -442,11 +438,11 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
             )}
 
             {!activeTrip && (
-              <div className="bg-white border-2 border-border-heavy p-8 text-center">
-                <p className="text-sm text-text-ghost font-body">No active trip</p>
+              <div className="bg-white border border-gold-light/40 rounded-xl p-8 text-center shadow-sm">
+                <p className="text-sm text-slate font-sans">No active trip</p>
                 <button
                   onClick={() => setMobileTab("plan")}
-                  className="mt-3 font-ui text-xs font-bold uppercase tracking-[0.1em] text-accent min-h-touch flex items-center justify-center mx-auto"
+                  className="mt-3 font-sans text-sm font-medium text-gold min-h-touch flex items-center justify-center mx-auto"
                 >
                   Plan a new trip
                 </button>
@@ -460,7 +456,6 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
         )}
       </div>
 
-      {/* ── Bottom navigation (mobile only) ─────────────────────────────────── */}
       <BottomNav
         activeTab={mobileTab}
         onTabChange={handleMobileTabChange}
@@ -468,7 +463,6 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
         hasActiveTrip={activeTrip?.status === "running"}
       />
 
-      {/* ── Install prompt ──────────────────────────────────────────────────── */}
       <InstallPrompt />
     </main>
   );
@@ -476,20 +470,20 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
 
 function StatusBadge({ status, connected }: { status: string; connected: boolean }) {
   const styles: Record<string, string> = {
-    pending: "border-border-light text-text-ghost",
-    running: "border-accent-border text-accent",
+    pending: "border-gold-light text-slate",
+    running: "border-gold text-gold",
     completed: "border-success-border text-success",
     complete: "border-success-border text-success",
-    failed: "border-accent text-accent",
-    cancelled: "border-border-light text-text-ghost",
+    failed: "border-error text-error",
+    cancelled: "border-gold-light text-slate",
   };
 
   return (
     <div className="flex items-center gap-2">
       {connected && status === "running" && (
-        <span className="h-2 w-2 bg-accent animate-pulse-dot" />
+        <span className="h-2 w-2 bg-gold rounded-full animate-pulse-dot" />
       )}
-      <span className={`px-2.5 py-0.5 border-[1.5px] font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] ${styles[status] ?? "border-border-light text-text-ghost"}`}>
+      <span className={`px-2.5 py-0.5 border rounded-md font-sans text-xs font-medium ${styles[status] ?? "border-gold-light text-slate"}`}>
         {status}
       </span>
     </div>

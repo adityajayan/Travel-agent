@@ -18,10 +18,10 @@ const PLACEHOLDER_EXAMPLES = [
 ];
 
 const DOMAIN_STYLES: Record<string, string> = {
-  flight: "border-[rgba(59,130,246,0.3)] text-[#2563eb] bg-[rgba(59,130,246,0.06)]",
-  hotel: "border-[rgba(147,51,234,0.3)] text-[#7c3aed] bg-[rgba(147,51,234,0.06)]",
-  transport: "border-[rgba(234,88,12,0.3)] text-[#c2410c] bg-[rgba(234,88,12,0.06)]",
-  activity: "border-[rgba(13,148,136,0.3)] text-[#0d9488] bg-[rgba(13,148,136,0.06)]",
+  flight: "border-blue-200 text-blue-600 bg-blue-50",
+  hotel: "border-purple-200 text-purple-600 bg-purple-50",
+  transport: "border-orange-200 text-orange-600 bg-orange-50",
+  activity: "border-teal-200 text-teal-600 bg-teal-50",
 };
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -39,7 +39,6 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Rotate placeholder text
   useEffect(() => {
     const interval = setInterval(() => {
       setPlaceholderIndex((i) => (i + 1) % PLACEHOLDER_EXAMPLES.length);
@@ -66,10 +65,8 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (parseResult) {
-      // Confirm and create trip
       handleConfirm();
     } else {
-      // First step: parse
       handleParse();
     }
   };
@@ -111,18 +108,16 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
   };
 
   return (
-    <div className="bg-white border-2 border-border-heavy card-hover-bar">
+    <div className="bg-white border border-gold-light/40 rounded-xl shadow-sm card-hover-bar">
       <form onSubmit={handleSubmit} className="p-4 lg:p-6">
         <p className="eyebrow mb-4">Plan Your Trip</p>
 
-        {/* Freeform textarea */}
         <div className="relative mb-4">
           <textarea
             ref={textareaRef}
             value={text}
             onChange={(e) => {
               setText(e.target.value);
-              // Clear previous parse when text changes
               if (parseResult) {
                 setParseResult(null);
                 setParseError(null);
@@ -132,30 +127,28 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
             placeholder={PLACEHOLDER_EXAMPLES[placeholderIndex]}
             rows={3}
             disabled={disabled || parsing}
-            className="w-full border-2 border-border-heavy bg-paper px-3 py-3 pr-14 text-sm font-body text-text-primary placeholder:text-text-ghost focus:outline-none focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+            className="w-full border border-navy/20 bg-cream rounded-lg px-3 py-3 pr-14 text-sm font-sans text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold disabled:opacity-50 disabled:cursor-not-allowed resize-none"
           />
           <div className="absolute bottom-3 right-3">
             <VoiceInputButton onResult={handleVoiceResult} disabled={disabled || parsing} />
           </div>
         </div>
 
-        {/* Parse error */}
         {parseError && (
-          <div className="mb-4 p-3 border-[1.5px] border-accent-border bg-accent-soft">
-            <p className="text-sm font-body text-accent">{parseError}</p>
+          <div className="mb-4 p-3 border border-error-border bg-error-soft rounded-lg">
+            <p className="text-sm font-sans text-error">{parseError}</p>
           </div>
         )}
 
-        {/* Submit / Parse button */}
         {!parseResult && (
-          <div className="flex items-center justify-between gap-3 pt-3 border-t border-border-light">
-            <p className="text-xs text-text-ghost font-body font-light hidden sm:block">
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-gold-light/30">
+            <p className="text-xs text-slate font-sans hidden sm:block">
               Describe your trip in your own words. Our AI will handle the rest.
             </p>
             <button
               type="submit"
               disabled={disabled || !canSubmit || parsing}
-              className="w-full sm:w-auto px-6 py-3 lg:py-2.5 bg-contrast text-paper font-ui text-xs font-bold uppercase tracking-[0.1em] hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed btn-transition min-h-touch"
+              className="w-full sm:w-auto px-6 py-3 lg:py-2.5 bg-navy text-cream font-sans text-sm font-semibold rounded-md hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed btn-transition min-h-touch"
             >
               {parsing ? "Understanding\u2026" : "Plan Trip"}
             </button>
@@ -163,55 +156,50 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
         )}
       </form>
 
-      {/* Parsed confirmation card */}
       {parseResult && (
-        <div className="border-t-2 border-border-heavy p-4 lg:p-6">
+        <div className="border-t border-gold-light/40 p-4 lg:p-6">
           <p className="eyebrow mb-3">Here&apos;s What I Understood</p>
 
-          {/* Parsed chips */}
           <div className="flex flex-wrap gap-2 mb-4">
             <ParsedChips parsed={parseResult.parsed} />
           </div>
 
-          {/* Clarification notes */}
           {parseResult.clarification_needed.length > 0 && (
-            <div className="mb-4 p-3 border-[1.5px] border-border-light bg-paper-elevated">
+            <div className="mb-4 p-3 border border-gold-light/40 bg-cream-dark rounded-lg">
               {parseResult.clarification_needed.map((note, i) => (
-                <p key={i} className="text-xs font-body text-text-muted font-light">
-                  <span className="font-ui font-bold text-accent mr-1">&rarr;</span>
+                <p key={i} className="text-xs font-sans text-slate">
+                  <span className="font-semibold text-gold mr-1">&rarr;</span>
                   {note}
                 </p>
               ))}
             </div>
           )}
 
-          {/* Confidence indicator */}
           <div className="mb-4">
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-1 bg-paper-elevated">
+              <div className="flex-1 h-1 bg-cream-dark rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-success transition-all duration-500"
+                  className="h-full bg-success rounded-full transition-all duration-500"
                   style={{ width: `${Math.round(parseResult.confidence * 100)}%` }}
                 />
               </div>
-              <span className="text-[0.62rem] font-body text-text-ghost">
+              <span className="text-[0.62rem] font-sans text-slate/60">
                 {Math.round(parseResult.confidence * 100)}% confident
               </span>
             </div>
           </div>
 
-          {/* Action buttons */}
           <div className="flex items-center gap-3">
             <button
               onClick={handleConfirm}
               disabled={disabled}
-              className="px-6 py-3 lg:py-2.5 bg-contrast text-paper font-ui text-xs font-bold uppercase tracking-[0.1em] hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed btn-transition min-h-touch"
+              className="px-6 py-3 lg:py-2.5 bg-navy text-cream font-sans text-sm font-semibold rounded-md hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed btn-transition min-h-touch"
             >
               Looks Good &mdash; Plan It
             </button>
             <button
               onClick={handleAdjust}
-              className="font-ui text-xs font-semibold uppercase tracking-[0.08em] text-text-muted hover:text-contrast btn-transition"
+              className="font-sans text-sm font-medium text-slate hover:text-navy btn-transition"
             >
               Let Me Adjust
             </button>
@@ -225,38 +213,33 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
 function ParsedChips({ parsed }: { parsed: ParsedTripParams }) {
   const chips: { label: string; style: string }[] = [];
 
-  // Destinations
   for (const dest of parsed.destinations) {
-    chips.push({ label: dest, style: "border-border-heavy text-text-primary bg-paper" });
+    chips.push({ label: dest, style: "border-navy/20 text-navy bg-cream" });
   }
 
-  // Origin
   if (parsed.origin) {
-    chips.push({ label: `from ${parsed.origin}`, style: "border-border-light text-text-mid bg-paper" });
+    chips.push({ label: `from ${parsed.origin}`, style: "border-gold-light/40 text-charcoal bg-cream" });
   }
 
-  // Dates
   if (parsed.departure_date && parsed.return_date) {
     chips.push({
       label: `${formatDate(parsed.departure_date)} \u2013 ${formatDate(parsed.return_date)}`,
-      style: "border-border-light text-text-mid bg-paper",
+      style: "border-gold-light/40 text-charcoal bg-cream",
     });
   } else if (parsed.departure_date) {
     chips.push({
       label: formatDate(parsed.departure_date),
-      style: "border-border-light text-text-mid bg-paper",
+      style: "border-gold-light/40 text-charcoal bg-cream",
     });
   }
 
-  // Duration
   if (parsed.duration_days) {
     chips.push({
       label: `${parsed.duration_days} day${parsed.duration_days !== 1 ? "s" : ""}`,
-      style: "border-border-light text-text-mid bg-paper",
+      style: "border-gold-light/40 text-charcoal bg-cream",
     });
   }
 
-  // Budget
   if (parsed.budget_total) {
     chips.push({
       label: `$${parsed.budget_total.toLocaleString()} budget`,
@@ -264,7 +247,6 @@ function ParsedChips({ parsed }: { parsed: ParsedTripParams }) {
     });
   }
 
-  // Travelers
   const totalTravelers = parsed.travelers.adults + parsed.travelers.children;
   if (totalTravelers > 1) {
     const parts: string[] = [];
@@ -272,19 +254,17 @@ function ParsedChips({ parsed }: { parsed: ParsedTripParams }) {
     if (parsed.travelers.children > 0) parts.push(`${parsed.travelers.children} child${parsed.travelers.children !== 1 ? "ren" : ""}`);
     chips.push({
       label: parts.join(", "),
-      style: "border-border-light text-text-mid bg-paper",
+      style: "border-gold-light/40 text-charcoal bg-cream",
     });
   }
 
-  // Domains
   for (const domain of parsed.domains) {
     chips.push({
       label: DOMAIN_LABELS[domain] ?? domain,
-      style: DOMAIN_STYLES[domain] ?? "border-border-light text-text-mid bg-paper",
+      style: DOMAIN_STYLES[domain] ?? "border-gold-light/40 text-charcoal bg-cream",
     });
   }
 
-  // Flight preferences
   if (parsed.flight_preferences.cabin_class) {
     chips.push({
       label: parsed.flight_preferences.cabin_class.replace("_", " "),
@@ -301,7 +281,6 @@ function ParsedChips({ parsed }: { parsed: ParsedTripParams }) {
     chips.push({ label: "nonstop", style: DOMAIN_STYLES.flight });
   }
 
-  // Hotel preferences
   if (parsed.hotel_preferences.type) {
     chips.push({
       label: parsed.hotel_preferences.type,
@@ -320,7 +299,7 @@ function ParsedChips({ parsed }: { parsed: ParsedTripParams }) {
       {chips.map((chip, i) => (
         <span
           key={i}
-          className={`px-2.5 py-1 border-[1.5px] font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] ${chip.style}`}
+          className={`px-2.5 py-1 border rounded-md font-sans text-xs font-medium ${chip.style}`}
         >
           {chip.label}
         </span>

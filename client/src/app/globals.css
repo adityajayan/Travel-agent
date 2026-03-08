@@ -1,69 +1,79 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* ── Design System: CSS Custom Properties ──────────────────────────────── */
-:root {
-  --bg: #f8f5ef;
-  --bg-card: #ffffff;
-  --bg-contrast: #1a1a1a;
-  --bg-elevated: #f0ede6;
-  --text: #1a1a1a;
-  --text-mid: #3d3d3d;
-  --text-muted: #777777;
-  --text-ghost: #aaaaaa;
-  --accent: #c0392b;
-  --accent-soft: rgba(192, 57, 43, 0.08);
-  --accent-border: rgba(192, 57, 43, 0.2);
-  --green: #1a7a4c;
-  --green-soft: rgba(26, 122, 76, 0.08);
-  --border: #e0dbd3;
-  --border-heavy: #1a1a1a;
+@theme {
+  --color-cream: #FBF7F0;
+  --color-cream-dark: #F3EDE3;
+  --color-navy: #1B2A4A;
+  --color-navy-light: #2D3F66;
+  --color-charcoal: #3D4555;
+  --color-slate: #6B7280;
+  --color-gold: #C9963B;
+  --color-gold-light: #E8D5A8;
+  --color-gold-dark: #A67B2E;
+  --color-white: #ffffff;
+  --color-success: #1a7a4c;
+  --color-success-soft: rgba(26, 122, 76, 0.08);
+  --color-success-border: rgba(26, 122, 76, 0.2);
+  --color-error: #b91c1c;
+  --color-error-soft: rgba(185, 28, 28, 0.08);
+  --color-error-border: rgba(185, 28, 28, 0.2);
+
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  --animate-fade-up: fade-up 0.6s ease-out both;
+  --animate-fade-in: fade-in 0.6s ease-out both;
 }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+html { scroll-behavior: smooth; }
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #FBF7F0; }
+::-webkit-scrollbar-thumb { background: #E8D5A8; border-radius: 4px; }
 
 /* ── Base styles ───────────────────────────────────────────────────────── */
 body {
-  font-family: "DM Sans", system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
-  background-color: var(--bg);
-  color: var(--text);
-}
-
-/* ── Paper grain texture overlay ───────────────────────────────────────── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 9999;
+  background-color: #FBF7F0;
+  color: #1B2A4A;
 }
 
 /* ── Headline emphasis pattern ─────────────────────────────────────────── */
 h1 em, h2 em, h3 em {
   font-style: italic;
-  color: var(--accent);
-  font-family: "Playfair Display", Georgia, serif;
+  color: #C9963B;
+  font-family: 'Cormorant Garamond', Georgia, serif;
 }
 
-/* ── Eyebrow / section label ───────────────────────────────────────────── */
+/* ── Section label (eyebrow) ──────────────────────────────────────────── */
 .eyebrow {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-family: "Syne", system-ui, sans-serif;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--accent);
+  letter-spacing: 0.12em;
+  color: #C9963B;
 }
 .eyebrow::before {
   content: '';
-  width: 24px;
-  height: 3px;
-  background: var(--accent);
+  width: 20px;
+  height: 2px;
+  background: #C9963B;
   flex-shrink: 0;
 }
 
@@ -78,8 +88,8 @@ h1 em, h2 em, h3 em {
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  background: var(--accent);
+  height: 2px;
+  background: #C9963B;
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.4s ease-out;
@@ -93,14 +103,14 @@ h1 em, h2 em, h3 em {
 .shimmer {
   background: linear-gradient(
     90deg,
-    var(--bg-elevated) 25%,
-    var(--bg-card) 50%,
-    var(--bg-elevated) 75%
+    #F3EDE3 25%,
+    #ffffff 50%,
+    #F3EDE3 75%
   );
   background-size: 200% 100%;
   animation: shimmer 2s ease-in-out infinite;
 }
-@keyframes shimmer-kf {
+@keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
@@ -117,7 +127,7 @@ h1 em, h2 em, h3 em {
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--border-heavy);
+  background: #E8D5A8;
 }
 
 /* ── Timeline node dot ─────────────────────────────────────────────────── */
@@ -131,19 +141,9 @@ h1 em, h2 em, h3 em {
   top: 0.6rem;
   width: 10px;
   height: 10px;
-  background: var(--border-heavy);
+  background: #1B2A4A;
+  border-radius: 50%;
   transform: translateX(6px);
-}
-
-/* ── Scrollbar styling ──────────────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg-elevated);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
 }
 
 /* ── Pulse animation for streaming events ───────────────────────────────── */
@@ -173,19 +173,13 @@ h1 em, h2 em, h3 em {
 /* ── Staggered fade-up for timeline events ──────────────────────────────── */
 .stagger-fade-up {
   opacity: 0;
-  transform: translateY(22px);
-  animation: fadeUpIn 0.45s ease-out forwards;
-}
-@keyframes fadeUpIn {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  transform: translateY(24px);
+  animation: fade-up 0.6s ease-out forwards;
 }
 
 /* ── Button transition ──────────────────────────────────────────────────── */
 .btn-transition {
-  transition: background-color 0.25s, color 0.25s, border-color 0.25s;
+  transition: background-color 0.25s, color 0.25s, border-color 0.25s, opacity 0.25s;
 }
 
 /* ── PWA safe area insets ───────────────────────────────────────────────── */
