@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { X } from "lucide-react";
 
 interface SettingsProps {
   onClose: () => void;
@@ -43,7 +44,7 @@ function defaultPrefs(): StoredPreferences {
   };
 }
 
-const inputClasses = "w-full border-2 border-border-heavy bg-paper px-3 py-2 text-sm font-body text-text-primary placeholder:text-text-ghost focus:outline-none focus:border-accent";
+const inputClasses = "w-full border border-navy/20 bg-cream rounded-md px-3 py-2 text-sm font-sans text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold";
 
 export default function Settings({ onClose }: SettingsProps) {
   const [prefs, setPrefs] = useState<StoredPreferences>(defaultPrefs());
@@ -65,16 +66,14 @@ export default function Settings({ onClose }: SettingsProps) {
   };
 
   return (
-    <div className="bg-white border-2 border-border-heavy p-6">
+    <div className="bg-white border border-gold-light/40 rounded-xl p-6 shadow-sm">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="font-display text-xl font-medium text-contrast">Settings & Preferences</h2>
+        <h2 className="font-serif text-xl font-medium text-navy">Settings & Preferences</h2>
         <button
           onClick={onClose}
-          className="text-text-ghost hover:text-contrast btn-transition p-2 -mr-2 min-h-touch min-w-touch flex items-center justify-center"
+          className="text-slate hover:text-navy btn-transition p-2 -mr-2 min-h-touch min-w-touch flex items-center justify-center rounded-md hover:bg-cream-dark"
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="h-5 w-5" />
         </button>
       </div>
 
@@ -83,7 +82,7 @@ export default function Settings({ onClose }: SettingsProps) {
           <p className="eyebrow mb-3">Organization</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-body text-xs font-medium text-text-mid mb-1">Organization ID</label>
+              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Organization ID</label>
               <input
                 type="text"
                 value={prefs.orgId}
@@ -93,7 +92,7 @@ export default function Settings({ onClose }: SettingsProps) {
               />
             </div>
             <div>
-              <label className="block font-body text-xs font-medium text-text-mid mb-1">Policy ID (optional)</label>
+              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Policy ID (optional)</label>
               <input
                 type="text"
                 value={prefs.policyId}
@@ -109,7 +108,7 @@ export default function Settings({ onClose }: SettingsProps) {
           <p className="eyebrow mb-3">Travel Defaults</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-body text-xs font-medium text-text-mid mb-1">Home City</label>
+              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Home City</label>
               <input
                 type="text"
                 value={prefs.defaultDepartureCity}
@@ -119,11 +118,11 @@ export default function Settings({ onClose }: SettingsProps) {
               />
             </div>
             <div>
-              <label className="block font-body text-xs font-medium text-text-mid mb-1">Cabin Class</label>
+              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Cabin Class</label>
               <select
                 value={prefs.cabinClass}
                 onChange={(e) => update("cabinClass", e.target.value)}
-                className={`${inputClasses} bg-paper`}
+                className={`${inputClasses} bg-cream`}
               >
                 <option value="economy">Economy</option>
                 <option value="premium_economy">Premium Economy</option>
@@ -132,7 +131,7 @@ export default function Settings({ onClose }: SettingsProps) {
               </select>
             </div>
             <div>
-              <label className="block font-body text-xs font-medium text-text-mid mb-1">Preferred Airlines</label>
+              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Preferred Airlines</label>
               <input
                 type="text"
                 value={prefs.preferredAirlines}
@@ -142,7 +141,7 @@ export default function Settings({ onClose }: SettingsProps) {
               />
             </div>
             <div>
-              <label className="block font-body text-xs font-medium text-text-mid mb-1">Preferred Hotels</label>
+              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Preferred Hotels</label>
               <input
                 type="text"
                 value={prefs.preferredHotelChains}
@@ -158,7 +157,7 @@ export default function Settings({ onClose }: SettingsProps) {
           <p className="eyebrow mb-3">Personal</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-body text-xs font-medium text-text-mid mb-1">Loyalty Programs</label>
+              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Loyalty Programs</label>
               <input
                 type="text"
                 value={prefs.loyaltyPrograms}
@@ -168,7 +167,7 @@ export default function Settings({ onClose }: SettingsProps) {
               />
             </div>
             <div>
-              <label className="block font-body text-xs font-medium text-text-mid mb-1">Dietary Requirements</label>
+              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Dietary Requirements</label>
               <input
                 type="text"
                 value={prefs.dietaryNeeds}
@@ -178,7 +177,7 @@ export default function Settings({ onClose }: SettingsProps) {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block font-body text-xs font-medium text-text-mid mb-1">Accessibility Needs</label>
+              <label className="block font-sans text-xs font-medium text-charcoal mb-1">Accessibility Needs</label>
               <input
                 type="text"
                 value={prefs.accessibilityNeeds}
@@ -191,13 +190,13 @@ export default function Settings({ onClose }: SettingsProps) {
         </section>
       </div>
 
-      <div className="flex items-center justify-between mt-6 pt-4 border-t border-border-light">
-        <p className="font-body text-xs text-text-ghost font-light">Saved locally in your browser</p>
+      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gold-light/30">
+        <p className="font-sans text-xs text-slate/60">Saved locally in your browser</p>
         <div className="flex items-center gap-3">
-          {saved && <span className="font-ui text-xs text-success font-bold uppercase tracking-[0.1em]">Saved</span>}
+          {saved && <span className="font-sans text-xs text-success font-semibold">Saved</span>}
           <button
             onClick={handleSave}
-            className="px-5 py-3 lg:py-2 bg-contrast text-paper font-ui text-xs font-bold uppercase tracking-[0.1em] hover:bg-accent btn-transition min-h-touch"
+            className="px-5 py-3 lg:py-2 bg-navy text-cream font-sans text-sm font-semibold rounded-md hover:bg-navy-light btn-transition min-h-touch"
           >
             Save Preferences
           </button>
@@ -207,7 +206,6 @@ export default function Settings({ onClose }: SettingsProps) {
   );
 }
 
-// Helper to get saved preferences for trip creation
 export function getSavedPreferences(): Partial<{ orgId: string; policyId: string; departureCity: string; cabinClass: string }> {
   if (typeof window === "undefined") return {};
   try {

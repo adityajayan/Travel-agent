@@ -25,14 +25,14 @@ export default function BudgetBar({ budget }: BudgetBarProps) {
   const isOverBudget = budget.total > 0 && budget.allocated > budget.total;
 
   return (
-    <div className="border-2 border-border-heavy bg-white p-4">
+    <div className="border border-gold-light/40 bg-white rounded-xl p-4 shadow-sm">
       <p className="eyebrow mb-3">Budget</p>
 
       {/* Main progress bar */}
       <div className="mb-3">
-        <div className="h-3 bg-paper-elevated border border-border-light overflow-hidden">
+        <div className="h-3 bg-cream-dark border border-gold-light/30 rounded-full overflow-hidden">
           {budget.total > 0 ? (
-            <div className="h-full flex">
+            <div className="h-full flex rounded-full overflow-hidden">
               {Object.entries(budget.by_category).map(([category, amount]) => {
                 const catPct = (amount / budget.total) * 100;
                 return (
@@ -46,7 +46,7 @@ export default function BudgetBar({ budget }: BudgetBarProps) {
             </div>
           ) : (
             <div
-              className="h-full bg-contrast"
+              className="h-full bg-navy rounded-full"
               style={{ width: `${Math.min(percentage, 100)}%` }}
             />
           )}
@@ -56,9 +56,9 @@ export default function BudgetBar({ budget }: BudgetBarProps) {
       {/* Amounts */}
       <div className="flex items-baseline justify-between mb-4">
         <div>
-          <span className="font-display text-xl text-contrast">${budget.allocated.toFixed(0)}</span>
+          <span className="font-serif text-xl text-navy">${budget.allocated.toFixed(0)}</span>
           {budget.total > 0 && (
-            <span className="font-body text-xs text-text-ghost ml-1">
+            <span className="font-sans text-xs text-slate/60 ml-1">
               of ${budget.total.toFixed(0)}
             </span>
           )}
@@ -66,11 +66,11 @@ export default function BudgetBar({ budget }: BudgetBarProps) {
         {budget.total > 0 && (
           <div>
             <span
-              className={`font-display text-lg ${isOverBudget ? "text-accent" : "text-success"}`}
+              className={`font-serif text-lg ${isOverBudget ? "text-error" : "text-success"}`}
             >
               ${budget.remaining.toFixed(0)}
             </span>
-            <span className="font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] text-text-ghost ml-1">
+            <span className="font-sans text-[0.65rem] font-medium text-slate/60 ml-1">
               remaining
             </span>
           </div>
@@ -79,16 +79,16 @@ export default function BudgetBar({ budget }: BudgetBarProps) {
 
       {/* Category breakdown */}
       {Object.keys(budget.by_category).length > 0 && (
-        <div className="border-t border-border-light pt-3 space-y-2">
+        <div className="border-t border-gold-light/30 pt-3 space-y-2">
           {Object.entries(budget.by_category).map(([category, amount]) => (
             <div key={category} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 ${categoryColors[category] || "bg-gray-400"}`} />
-                <span className="font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] text-text-muted">
+                <span className={`w-2.5 h-2.5 rounded-full ${categoryColors[category] || "bg-gray-400"}`} />
+                <span className="font-sans text-[0.65rem] font-medium text-slate">
                   {categoryLabels[category] || category}
                 </span>
               </div>
-              <span className="font-body text-sm text-text-mid">${amount.toFixed(0)}</span>
+              <span className="font-sans text-sm text-charcoal">${amount.toFixed(0)}</span>
             </div>
           ))}
         </div>

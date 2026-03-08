@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import type { TripItinerary } from "@/lib/itinerary-types";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -101,20 +103,20 @@ export default function TripArtifactPage() {
     return (
       <main className="max-w-7xl mx-auto px-4 py-6 lg:py-8 safe-area-x">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-contrast flex items-center justify-center">
-            <span className="font-display text-paper text-lg font-medium">C</span>
+          <div className="w-10 h-10 bg-navy rounded-lg flex items-center justify-center">
+            <span className="font-serif text-cream text-lg font-medium">C</span>
           </div>
-          <span className="font-ui text-[0.9rem] font-bold uppercase tracking-[0.1em] text-contrast">
+          <span className="font-sans text-sm font-semibold text-navy">
             Concierge
           </span>
         </div>
         <div className="text-center py-16">
           <div className="flex justify-center gap-1.5 mb-4">
-            <span className="h-2 w-2 bg-border-heavy animate-pulse-dot" />
-            <span className="h-2 w-2 bg-border-heavy animate-pulse-dot" style={{ animationDelay: "0.3s" }} />
-            <span className="h-2 w-2 bg-border-heavy animate-pulse-dot" style={{ animationDelay: "0.6s" }} />
+            <span className="h-2 w-2 rounded-full bg-navy/20 animate-pulse-dot" />
+            <span className="h-2 w-2 rounded-full bg-navy/20 animate-pulse-dot" style={{ animationDelay: "0.3s" }} />
+            <span className="h-2 w-2 rounded-full bg-navy/20 animate-pulse-dot" style={{ animationDelay: "0.6s" }} />
           </div>
-          <p className="font-body text-sm text-text-ghost">Loading itinerary...</p>
+          <p className="font-sans text-sm text-slate/60">Loading itinerary...</p>
         </div>
       </main>
     );
@@ -124,22 +126,23 @@ export default function TripArtifactPage() {
     return (
       <main className="max-w-7xl mx-auto px-4 py-6 lg:py-8 safe-area-x">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-contrast flex items-center justify-center">
-            <span className="font-display text-paper text-lg font-medium">C</span>
+          <div className="w-10 h-10 bg-navy rounded-lg flex items-center justify-center">
+            <span className="font-serif text-cream text-lg font-medium">C</span>
           </div>
-          <span className="font-ui text-[0.9rem] font-bold uppercase tracking-[0.1em] text-contrast">
+          <span className="font-sans text-sm font-semibold text-navy">
             Concierge
           </span>
         </div>
-        <div className="bg-accent-soft border-2 border-accent p-6 text-center">
+        <div className="bg-error/5 border border-error rounded-xl p-6 text-center">
           <p className="eyebrow justify-center mb-2">Error</p>
-          <p className="font-body text-sm text-text-mid">{error || "Itinerary not found"}</p>
-          <a
+          <p className="font-sans text-sm text-charcoal">{error || "Itinerary not found"}</p>
+          <Link
             href="/"
-            className="inline-block mt-4 px-6 py-3 bg-contrast text-paper font-ui text-xs font-bold uppercase tracking-[0.1em] hover:bg-accent btn-transition"
+            className="inline-flex items-center gap-1.5 mt-4 px-6 py-3 bg-navy text-cream font-sans text-xs font-semibold rounded-md hover:bg-navy-light btn-transition"
           >
+            <ChevronLeft className="h-3.5 w-3.5" />
             Back to Trips
-          </a>
+          </Link>
         </div>
       </main>
     );
@@ -149,14 +152,14 @@ export default function TripArtifactPage() {
     <main className="max-w-7xl mx-auto px-4 py-6 lg:py-8 safe-area-x">
       {/* Branding */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-contrast flex items-center justify-center">
-          <span className="font-display text-paper text-lg font-medium">C</span>
+        <div className="w-10 h-10 bg-navy rounded-lg flex items-center justify-center">
+          <span className="font-serif text-cream text-lg font-medium">C</span>
         </div>
         <div>
-          <span className="font-ui text-[0.9rem] font-bold uppercase tracking-[0.1em] text-contrast block leading-tight">
+          <span className="font-sans text-sm font-semibold text-navy block leading-tight">
             Concierge
           </span>
-          <span className="text-text-ghost font-body text-[0.62rem] block">
+          <span className="text-slate/60 font-sans text-[0.62rem] block">
             Travel, handled for you
           </span>
         </div>
@@ -181,9 +184,9 @@ export default function TripArtifactPage() {
             <>
               {/* Narrative */}
               {itinerary.narrative && (
-                <div className="border-2 border-border-heavy bg-white p-5 mb-6">
+                <div className="border border-gold-light/40 bg-white rounded-xl p-5 mb-6 shadow-sm">
                   <p className="eyebrow mb-2">Trip Summary</p>
-                  <div className="font-body text-sm text-text-muted font-light whitespace-pre-wrap leading-relaxed">
+                  <div className="font-sans text-sm text-slate whitespace-pre-wrap leading-relaxed">
                     {itinerary.narrative}
                   </div>
                 </div>
@@ -195,13 +198,13 @@ export default function TripArtifactPage() {
                   {itinerary.alerts.map((alert, i) => (
                     <div
                       key={i}
-                      className="bg-accent-soft border-[1.5px] border-accent-border p-3 flex items-center gap-2 animate-slide-in-right"
+                      className="bg-gold/8 border border-gold rounded-lg p-3 flex items-center gap-2 animate-slide-in-right"
                       style={{ animationDelay: `${i * 0.1}s` }}
                     >
-                      <span className="font-ui text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent">
+                      <span className="font-sans text-[0.65rem] font-semibold text-gold">
                         {String(alert.type || "Alert")}
                       </span>
-                      <span className="font-body text-xs text-text-mid">
+                      <span className="font-sans text-xs text-charcoal">
                         {String(alert.message || "")}
                       </span>
                     </div>
@@ -221,8 +224,8 @@ export default function TripArtifactPage() {
                   />
                 ))
               ) : (
-                <div className="border-2 border-border-heavy bg-white p-8 text-center">
-                  <p className="font-body text-sm text-text-ghost">
+                <div className="border border-gold-light/40 bg-white rounded-xl p-8 text-center shadow-sm">
+                  <p className="font-sans text-sm text-slate/60">
                     No itinerary items yet
                   </p>
                 </div>
@@ -231,23 +234,23 @@ export default function TripArtifactPage() {
           )}
 
           {activeTab === "map" && (
-            <div className="border-2 border-border-heavy bg-white p-8 text-center">
+            <div className="border border-gold-light/40 bg-white rounded-xl p-8 text-center shadow-sm">
               <p className="eyebrow justify-center mb-2">Map View</p>
-              <p className="font-body text-sm text-text-ghost">Coming soon</p>
+              <p className="font-sans text-sm text-slate/60">Coming soon</p>
             </div>
           )}
 
           {activeTab === "documents" && (
-            <div className="border-2 border-border-heavy bg-white p-8 text-center">
+            <div className="border border-gold-light/40 bg-white rounded-xl p-8 text-center shadow-sm">
               <p className="eyebrow justify-center mb-2">Documents</p>
-              <p className="font-body text-sm text-text-ghost">Coming soon</p>
+              <p className="font-sans text-sm text-slate/60">Coming soon</p>
             </div>
           )}
 
           {activeTab === "history" && (
-            <div className="border-2 border-border-heavy bg-white p-8 text-center">
+            <div className="border border-gold-light/40 bg-white rounded-xl p-8 text-center shadow-sm">
               <p className="eyebrow justify-center mb-2">History</p>
-              <p className="font-body text-sm text-text-ghost">
+              <p className="font-sans text-sm text-slate/60">
                 Agent run history and tool calls will appear here
               </p>
             </div>
