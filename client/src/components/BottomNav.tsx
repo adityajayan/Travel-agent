@@ -1,6 +1,6 @@
 "use client";
 
-import { List, Plus, Zap, Settings } from "lucide-react";
+import { List, Plus, Settings } from "lucide-react";
 
 interface BottomNavProps {
   activeTab: string;
@@ -11,9 +11,8 @@ interface BottomNavProps {
 
 export default function BottomNav({ activeTab, onTabChange, tripCount, hasActiveTrip }: BottomNavProps) {
   const tabs = [
-    { id: "trips", label: "Trips", icon: List, badge: tripCount },
+    { id: "trips", label: "Trips", icon: List, badge: tripCount, dot: hasActiveTrip },
     { id: "plan", label: "Plan", icon: Plus },
-    { id: "timeline", label: "Live", icon: Zap, dot: hasActiveTrip },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -27,12 +26,12 @@ export default function BottomNav({ activeTab, onTabChange, tripCount, hasActive
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-touch relative btn-transition ${
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-touch relative btn-transition focus:outline-none focus:ring-2 focus:ring-gold/30 focus:ring-inset ${
                 isActive ? "text-navy" : "text-slate/60"
               }`}
             >
               <div className="relative">
-                <Icon className="h-5 w-5" strokeWidth={1.5} />
+                <Icon className="h-5 w-5" strokeWidth={1.5} aria-hidden="true" />
                 {tab.badge != null && tab.badge > 0 && (
                   <span className="absolute -top-1 -right-1.5 h-4 min-w-[1rem] flex items-center justify-center bg-navy text-cream text-[10px] font-sans font-semibold px-1 rounded-full">
                     {tab.badge > 99 ? "99+" : tab.badge}

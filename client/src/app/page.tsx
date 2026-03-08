@@ -7,6 +7,7 @@ import TripForm from "@/components/TripForm";
 import TripTimeline from "@/components/TripTimeline";
 import TripList from "@/components/TripList";
 import TripDetail from "@/components/TripDetail";
+import ItineraryView from "@/components/itinerary/ItineraryView";
 import Settings, { getSavedPreferences } from "@/components/Settings";
 import BottomNav from "@/components/BottomNav";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -15,6 +16,9 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { apiClient, AuthStatus, CreateTripOptions } from "@/lib/api";
 import { useAuth, LoginForm } from "@/components/AuthGate";
 import { useToast } from "@/components/Toast";
+import StatusBadge from "@/components/ui/StatusBadge";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 export interface TripEvent {
   type: string;
@@ -46,7 +50,8 @@ export interface Trip {
   result?: Record<string, unknown>;
 }
 
-type MobileTab = "trips" | "plan" | "timeline" | "settings";
+type MobileTab = "trips" | "plan" | "settings";
+type TripView = "list" | "timeline" | "detail";
 type View = "timeline" | "detail" | "settings";
 
 export default function Home() {
@@ -57,6 +62,7 @@ export default function Home() {
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [view, setView] = useState<View>("timeline");
   const [mobileTab, setMobileTab] = useState<MobileTab>("plan");
+  const [tripView, setTripView] = useState<TripView>("list");
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -115,6 +121,9 @@ export default function Home() {
 
     if (prefs.departureCity && !options.goal.toLowerCase().includes("from")) {
       options.goal = `${options.goal} from ${prefs.departureCity}`;
+      if (options.parsed_params && !options.parsed_params.origin) {
+        options.parsed_params.origin = prefs.departureCity;
+      }
     }
     if (prefs.cabinClass && prefs.cabinClass !== "economy" && !options.goal.toLowerCase().includes("class")) {
       options.goal = `${options.goal}, ${prefs.cabinClass} class`;
@@ -125,7 +134,8 @@ export default function Home() {
       setActiveTrip(trip);
       setEvents([]);
       setView("timeline");
-      setMobileTab("timeline");
+      setMobileTab("trips");
+      setTripView("timeline");
       toast("Trip created — agents are planning your trip", "success");
       refreshTrips();
     } catch (err) {
@@ -167,28 +177,37 @@ export default function Home() {
       setActiveTrip(full);
       if (full.status === "complete" || full.status === "completed" || full.status === "failed" || full.status === "cancelled") {
         setView("detail");
-        setMobileTab("timeline");
+        setTripView("detail");
         setEvents([]);
       } else {
         setView("timeline");
-        setMobileTab("timeline");
+        setTripView("timeline");
         setEvents([]);
       }
+      setMobileTab("trips");
     } catch {
       setActiveTrip(trip);
       setEvents([]);
       setView("timeline");
-      setMobileTab("timeline");
+      setTripView("timeline");
+      setMobileTab("trips");
     }
   };
 
   const handleMobileTabChange = (tab: string) => {
     setMobileTab(tab as MobileTab);
     if (tab === "settings") setView("settings");
-    else if (tab === "timeline") setView(activeTrip && (activeTrip.status === "complete" || activeTrip.status === "completed" || activeTrip.status === "failed" || activeTrip.status === "cancelled") ? "detail" : "timeline");
-    else if (tab === "plan" || tab === "trips") {
+    else if (tab === "trips") {
+      if (view === "settings") setView("timeline");
+      // Keep tripView as-is so user returns to where they were
+    } else if (tab === "plan") {
       if (view === "settings") setView("timeline");
     }
+  };
+
+  const handleBackToList = () => {
+    setTripView("list");
+    setActiveTrip(null);
   };
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -206,16 +225,16 @@ export default function Home() {
     touchStartRef.current = null;
 
     if (dx > 80 && dy < dx * 0.5) {
-      if (view === "detail") {
-        setView("timeline");
+      if (tripView === "detail" && mobileTab === "trips") {
+        setTripView("timeline");
+      } else if (tripView === "timeline" && mobileTab === "trips") {
+        handleBackToList();
       } else if (view === "settings") {
         setView("timeline");
         setMobileTab("plan");
-      } else if (mobileTab === "timeline") {
-        setMobileTab("trips");
       }
     }
-  }, [view, mobileTab]);
+  }, [view, mobileTab, tripView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (authStatus === "auth_required" && !isAuthenticated) {
     return (
@@ -256,12 +275,9 @@ export default function Home() {
 pip install -r requirements.txt
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
           </pre>
-          <button
-            onClick={() => apiClient.checkAuth().then(setAuthStatus)}
-            className="px-6 py-3 bg-navy text-cream font-sans text-sm font-semibold rounded-md hover:bg-navy-light btn-transition min-h-touch"
-          >
+          <Button variant="primary" size="md" onClick={() => apiClient.checkAuth().then(setAuthStatus)}>
             Retry Connection
-          </button>
+          </Button>
         </div>
       </main>
     );
@@ -287,7 +303,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
         <div className="hidden lg:flex items-center gap-3">
           <button
             onClick={() => setView(view === "settings" ? "timeline" : "settings")}
-            className={`font-sans text-sm font-medium px-4 py-2 border rounded-md btn-transition flex items-center gap-1.5 ${
+            className={`font-sans text-sm font-medium px-4 py-2 border rounded-md btn-transition flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-gold/30 ${
               view === "settings"
                 ? "bg-navy text-cream border-navy"
                 : "text-charcoal hover:text-navy border-navy/20 hover:bg-navy hover:text-cream"
@@ -335,35 +351,28 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
               <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
 
               {activeTrip && view === "detail" && (
-                <TripDetail
-                  trip={activeTrip}
-                  onCancel={handleCancelTrip}
+                <ItineraryView
+                  tripId={activeTrip.id}
                   onBack={() => setView("timeline")}
                 />
               )}
 
               {activeTrip && view === "timeline" && (
-                <div className="bg-white border border-gold-light/40 rounded-xl p-6 shadow-sm card-hover-bar">
+                <Card hover padding="md">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="font-serif text-xl font-medium text-navy">{activeTrip.goal}</h2>
                     <div className="flex items-center gap-2">
                       {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
-                        <button
-                          onClick={() => router.push(`/trips/${activeTrip.id}`)}
-                          className="font-sans text-xs font-semibold text-gold border border-gold-light px-3 py-1.5 rounded-md hover:bg-gold/8 btn-transition"
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => router.push(`/trips/${activeTrip.id}`)} className="text-gold border border-gold-light hover:bg-gold/8">
                           View Details
-                        </button>
+                        </Button>
                       )}
                       {(activeTrip.status === "pending" || activeTrip.status === "running") && (
-                        <button
-                          onClick={() => handleCancelTrip(activeTrip.id)}
-                          className="font-sans text-xs font-medium text-slate border border-gold-light/40 px-3 py-1.5 rounded-md hover:border-navy/20 btn-transition"
-                        >
+                        <Button variant="secondary" size="sm" onClick={() => handleCancelTrip(activeTrip.id)}>
                           Cancel
-                        </button>
+                        </Button>
                       )}
-                      <StatusBadge status={activeTrip.status} connected={connected} />
+                      <TripStatusBadge status={activeTrip.status} connected={connected} />
                     </div>
                   </div>
                   <TripTimeline
@@ -372,7 +381,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                     onClarification={handleClarification}
                     tripId={activeTrip.id}
                   />
-                </div>
+                </Card>
               )}
             </div>
           </div>
@@ -382,73 +391,79 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
       {/* Mobile layout */}
       <div className="lg:hidden">
         {mobileTab === "trips" && (
-          <TripList
-            trips={trips}
-            activeTrip={activeTrip}
-            onSelect={handleSelectTrip}
-            onRefresh={refreshTrips}
-          />
-        )}
-
-        {mobileTab === "plan" && (
-          <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
-        )}
-
-        {mobileTab === "timeline" && (
           <>
-            {activeTrip && view === "detail" && (
-              <TripDetail
-                trip={activeTrip}
-                onCancel={handleCancelTrip}
-                onBack={() => setView("timeline")}
+            {tripView === "list" && (
+              <TripList
+                trips={trips}
+                activeTrip={activeTrip}
+                onSelect={handleSelectTrip}
+                onRefresh={refreshTrips}
               />
             )}
 
-            {activeTrip && view === "timeline" && (
-              <div className="bg-white border border-gold-light/40 rounded-xl p-4 shadow-sm card-hover-bar">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-serif text-base font-medium text-navy truncate flex-1 mr-2">{activeTrip.goal}</h2>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
-                      <button
-                        onClick={() => router.push(`/trips/${activeTrip.id}`)}
-                        className="font-sans text-xs font-semibold text-gold border border-gold-light px-2 py-1.5 rounded-md btn-transition min-h-touch flex items-center"
-                      >
-                        Details
-                      </button>
-                    )}
-                    {(activeTrip.status === "pending" || activeTrip.status === "running") && (
-                      <button
-                        onClick={() => handleCancelTrip(activeTrip.id)}
-                        className="font-sans text-xs font-medium text-slate border border-gold-light/40 px-2 py-1.5 rounded-md btn-transition min-h-touch flex items-center"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                    <StatusBadge status={activeTrip.status} connected={connected} />
-                  </div>
-                </div>
-                <TripTimeline
-                  events={events}
-                  onApproval={handleApproval}
-                  onClarification={handleClarification}
+            {tripView === "detail" && activeTrip && (
+              <div>
+                <button
+                  onClick={handleBackToList}
+                  className="font-sans text-sm font-medium text-gold hover:text-gold-dark btn-transition mb-3 flex items-center gap-1 min-h-touch"
+                >
+                  <span className="text-lg leading-none">&larr;</span> Back to Trips
+                </button>
+                <ItineraryView
                   tripId={activeTrip.id}
+                  onBack={handleBackToList}
                 />
               </div>
             )}
 
-            {!activeTrip && (
-              <div className="bg-white border border-gold-light/40 rounded-xl p-8 text-center shadow-sm">
-                <p className="text-sm text-slate font-sans">No active trip</p>
+            {tripView === "timeline" && activeTrip && (
+              <div>
                 <button
-                  onClick={() => setMobileTab("plan")}
-                  className="mt-3 font-sans text-sm font-medium text-gold min-h-touch flex items-center justify-center mx-auto"
+                  onClick={handleBackToList}
+                  className="font-sans text-sm font-medium text-gold hover:text-gold-dark btn-transition mb-3 flex items-center gap-1 min-h-touch"
                 >
-                  Plan a new trip
+                  <span className="text-lg leading-none">&larr;</span> Back to Trips
                 </button>
+                <Card hover padding="sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-serif text-base font-medium text-navy truncate flex-1 mr-2">{activeTrip.goal}</h2>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
+                        <Button variant="ghost" size="sm" onClick={() => { setTripView("detail"); setView("detail"); }} className="text-gold border border-gold-light hover:bg-gold/8">
+                          Details
+                        </Button>
+                      )}
+                      {(activeTrip.status === "pending" || activeTrip.status === "running") && (
+                        <Button variant="secondary" size="sm" onClick={() => handleCancelTrip(activeTrip.id)}>
+                          Cancel
+                        </Button>
+                      )}
+                      <TripStatusBadge status={activeTrip.status} connected={connected} />
+                    </div>
+                  </div>
+                  <TripTimeline
+                    events={events}
+                    onApproval={handleApproval}
+                    onClarification={handleClarification}
+                    tripId={activeTrip.id}
+                  />
+                </Card>
               </div>
             )}
+
+            {tripView !== "list" && !activeTrip && (
+              <Card padding="md" className="text-center">
+                <p className="text-sm text-slate font-sans">No active trip</p>
+                <Button variant="ghost" size="sm" onClick={() => setMobileTab("plan")} className="mt-3 mx-auto">
+                  Plan a new trip
+                </Button>
+              </Card>
+            )}
           </>
+        )}
+
+        {mobileTab === "plan" && (
+          <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
         )}
 
         {mobileTab === "settings" && (
@@ -468,24 +483,6 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
   );
 }
 
-function StatusBadge({ status, connected }: { status: string; connected: boolean }) {
-  const styles: Record<string, string> = {
-    pending: "border-gold-light text-slate",
-    running: "border-gold text-gold",
-    completed: "border-success-border text-success",
-    complete: "border-success-border text-success",
-    failed: "border-error text-error",
-    cancelled: "border-gold-light text-slate",
-  };
-
-  return (
-    <div className="flex items-center gap-2">
-      {connected && status === "running" && (
-        <span className="h-2 w-2 bg-gold rounded-full animate-pulse-dot" />
-      )}
-      <span className={`px-2.5 py-0.5 border rounded-md font-sans text-xs font-medium ${styles[status] ?? "border-gold-light text-slate"}`}>
-        {status}
-      </span>
-    </div>
-  );
+function TripStatusBadge({ status, connected }: { status: string; connected: boolean }) {
+  return <StatusBadge status={status} pulse={connected && status === "running"} />;
 }

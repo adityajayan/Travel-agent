@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
+import StatusBadge from "@/components/ui/StatusBadge";
+import Card from "@/components/ui/Card";
 
 interface Trip {
   id: string;
@@ -28,15 +30,6 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
     onRefresh();
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const statusStyles: Record<string, string> = {
-    pending: "border-gold-light text-slate",
-    running: "border-gold text-gold",
-    complete: "border-success-border text-success",
-    completed: "border-success-border text-success",
-    failed: "border-error text-error",
-    cancelled: "border-gold-light text-slate",
-  };
-
   const filtered = trips.filter((trip) => {
     if (statusFilter !== "all" && trip.status !== statusFilter) return false;
     if (search.trim()) {
@@ -53,14 +46,14 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
   };
 
   return (
-    <div className="bg-white border border-gold-light/40 rounded-xl p-4 shadow-sm">
+    <Card>
       <div className="flex items-center justify-between mb-3">
         <p className="eyebrow">Your Trips</p>
         <button
           onClick={onRefresh}
-          className="font-sans text-xs font-medium text-gold hover:text-gold-dark btn-transition flex items-center gap-1"
+          className="font-sans text-xs font-medium text-gold hover:text-gold-dark btn-transition flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-gold/30 rounded-md px-1"
         >
-          <RefreshCw className="h-3 w-3" />
+          <RefreshCw className="h-3 w-3" aria-hidden="true" />
           Refresh
         </button>
       </div>
@@ -78,7 +71,7 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
-            className={`px-3 py-2 lg:px-2 lg:py-1 font-sans text-xs font-medium whitespace-nowrap rounded-md btn-transition ${
+            className={`px-3 py-2 lg:px-2 lg:py-1 font-sans text-xs font-medium whitespace-nowrap rounded-md btn-transition focus:outline-none focus:ring-2 focus:ring-gold/30 ${
               statusFilter === s
                 ? "bg-navy text-cream"
                 : "text-slate hover:text-navy hover:bg-cream-dark"
@@ -99,7 +92,7 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
             <li key={trip.id}>
               <button
                 onClick={() => onSelect(trip)}
-                className={`w-full text-left px-3 py-3 lg:py-2.5 text-sm btn-transition min-h-touch rounded-md ${
+                className={`w-full text-left px-3 py-3 lg:py-2.5 text-sm btn-transition min-h-touch rounded-md focus:outline-none focus:ring-2 focus:ring-gold/30 ${
                   activeTrip?.id === trip.id
                     ? "bg-gold/8 border-l-[3px] border-gold"
                     : "hover:bg-cream-dark border-l-[3px] border-transparent"
@@ -107,13 +100,11 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
               >
                 <div className="flex items-center gap-2">
                   <span className="truncate flex-1 font-sans text-navy">{trip.goal}</span>
-                  <span className={`px-2 py-0.5 border rounded-md font-sans text-[0.6rem] font-medium flex-shrink-0 ${statusStyles[trip.status] ?? "border-gold-light text-slate"}`}>
-                    {trip.status}
-                  </span>
+                  <StatusBadge status={trip.status} />
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   {trip.created_at && (
-                    <span className="font-sans text-[0.62rem] text-slate/60">{formatDate(trip.created_at)}</span>
+                    <span className="font-sans text-[10px] text-slate/60">{formatDate(trip.created_at)}</span>
                   )}
                   {trip.total_spent != null && trip.total_spent > 0 && (
                     <span className="font-serif text-sm text-charcoal">${trip.total_spent.toFixed(0)}</span>
@@ -133,6 +124,6 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
           ))}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }

@@ -18,7 +18,11 @@ class Settings(BaseSettings):
     @classmethod
     def clean_api_key(cls, v: str) -> str:
         if isinstance(v, str):
-            return _strip_inline_comment(v)
+            v = _strip_inline_comment(v)
+            # If env var is empty, fall back to .env file value
+            if not v:
+                from dotenv import dotenv_values
+                v = dotenv_values(".env").get("ANTHROPIC_API_KEY", "test-key")
         return v
 
     database_url: str = "sqlite+aiosqlite:///./travel_agent.db"

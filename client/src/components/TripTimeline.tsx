@@ -3,6 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plane, Hotel, Car, CheckCircle, AlertTriangle, X, Check, Lightbulb, HelpCircle, ChevronRight } from "lucide-react";
+import Button from "@/components/ui/Button";
+import LoadingDots from "@/components/ui/LoadingDots";
+import { DOMAIN_CONFIG } from "@/lib/design-tokens";
 
 interface BookingData {
   domain: string;
@@ -59,16 +62,7 @@ interface TripTimelineProps {
 
 export default function TripTimeline({ events, onApproval, onClarification, tripId }: TripTimelineProps) {
   if (events.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="font-sans text-sm text-slate/60">Waiting for agent events...</p>
-        <div className="mt-3 flex justify-center gap-1.5">
-          <span className="h-2 w-2 bg-navy rounded-full animate-pulse-dot" />
-          <span className="h-2 w-2 bg-navy rounded-full animate-pulse-dot" style={{ animationDelay: "0.3s" }} />
-          <span className="h-2 w-2 bg-navy rounded-full animate-pulse-dot" style={{ animationDelay: "0.6s" }} />
-        </div>
-      </div>
-    );
+    return <LoadingDots label="Waiting for agent events..." />;
   }
 
   return (
@@ -84,22 +78,16 @@ export default function TripTimeline({ events, onApproval, onClarification, trip
 
 function DomainIcon({ domain }: { domain: string }) {
   const iconMap: Record<string, React.ReactNode> = {
-    flight: <Plane className="h-4 w-4" />,
-    hotel: <Hotel className="h-4 w-4" />,
-    transport: <Car className="h-4 w-4" />,
-    activity: <CheckCircle className="h-4 w-4" />,
+    flight: <Plane className="h-4 w-4" aria-hidden="true" />,
+    hotel: <Hotel className="h-4 w-4" aria-hidden="true" />,
+    transport: <Car className="h-4 w-4" aria-hidden="true" />,
+    activity: <CheckCircle className="h-4 w-4" aria-hidden="true" />,
   };
   return <>{iconMap[domain] || iconMap.activity}</>;
 }
 
-const domainLabels: Record<string, string> = {
-  flight: "Flight",
-  hotel: "Hotel",
-  transport: "Transport",
-  activity: "Activity",
-};
-
 function BookingCard({ booking }: { booking: BookingData }) {
+  const config = DOMAIN_CONFIG[booking.domain];
   return (
     <div className="border border-gold-light/40 rounded-lg p-3 card-hover-bar">
       <div className="flex items-center justify-between mb-2">
@@ -108,7 +96,7 @@ function BookingCard({ booking }: { booking: BookingData }) {
             <DomainIcon domain={booking.domain} />
           </span>
           <span className="font-sans text-xs font-semibold text-gold uppercase tracking-wide">
-            {domainLabels[booking.domain] || booking.domain}
+            {config?.label || booking.domain}
           </span>
         </div>
         <span className="font-serif text-lg text-navy">${booking.amount.toFixed(2)}</span>
@@ -157,7 +145,7 @@ function ClarificationForm({
     return (
       <div className="flex items-start gap-3 p-4 bg-success-soft border border-success-border rounded-lg">
         <span className="mt-0.5 h-5 w-5 bg-success rounded-full flex items-center justify-center flex-shrink-0">
-          <Check className="h-3 w-3 text-white" />
+          <Check className="h-3 w-3 text-white" aria-hidden="true" />
         </span>
         <p className="font-sans text-sm text-success font-medium">Preferences submitted — agents are continuing...</p>
       </div>
@@ -168,7 +156,7 @@ function ClarificationForm({
     <div className="border border-gold-light/40 rounded-lg p-4 bg-white">
       <div className="flex items-center gap-2 mb-3">
         <span className="h-5 w-5 bg-navy rounded-full flex items-center justify-center flex-shrink-0">
-          <HelpCircle className="h-3 w-3 text-cream" />
+          <HelpCircle className="h-3 w-3 text-cream" aria-hidden="true" />
         </span>
         <p className="font-sans text-sm font-semibold text-navy">Quick Questions</p>
       </div>
@@ -186,24 +174,22 @@ function ClarificationForm({
           </div>
         ))}
         <div className="flex gap-2">
-          <button
-            type="submit"
-            className="px-4 py-2 bg-navy text-cream font-sans text-xs font-semibold rounded-md hover:bg-navy-light btn-transition"
-          >
+          <Button type="submit" variant="primary" size="sm">
             Submit
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => {
               if (onSubmit && tripId && requestId) {
                 onSubmit(tripId, requestId, {});
                 setSubmitted(true);
               }
             }}
-            className="px-4 py-2 text-charcoal font-sans text-xs font-semibold border border-navy/20 rounded-md hover:bg-navy hover:text-cream btn-transition"
           >
             Skip
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -226,7 +212,7 @@ function SmartDefaultsCard({ event }: { event: TripEvent }) {
       <div className="p-4">
         <div className="flex items-center gap-2 mb-3">
           <span className="h-5 w-5 bg-navy rounded-full flex items-center justify-center flex-shrink-0">
-            <Lightbulb className="h-3 w-3 text-cream" />
+            <Lightbulb className="h-3 w-3 text-cream" aria-hidden="true" />
           </span>
           <p className="font-sans text-sm font-semibold text-navy">Smart Defaults</p>
         </div>
@@ -251,7 +237,7 @@ function SmartDefaultsCard({ event }: { event: TripEvent }) {
               <p className="font-sans text-xs font-medium text-slate">We assumed</p>
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="font-sans text-xs font-medium text-gold hover:text-gold-dark"
+                className="font-sans text-xs font-medium text-gold hover:text-gold-dark focus:outline-none focus:ring-2 focus:ring-gold/30 rounded-sm"
               >
                 {expanded ? "hide" : "details"}
               </button>
@@ -341,7 +327,7 @@ function ApprovalCard({
     return (
       <div className={`flex items-center gap-3 p-4 border rounded-lg ${isApproved ? "bg-success-soft border-success-border" : "bg-error-soft border-error-border"}`}>
         <span className={`h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0 ${isApproved ? "bg-success" : "bg-error"}`}>
-          {isApproved ? <Check className="h-3 w-3 text-white" /> : <X className="h-3 w-3 text-white" />}
+          {isApproved ? <Check className="h-3 w-3 text-white" aria-hidden="true" /> : <X className="h-3 w-3 text-white" aria-hidden="true" />}
         </span>
         <p className={`font-sans text-sm font-medium ${isApproved ? "text-success" : "text-error"}`}>
           Booking {decided}: {actionLabel}
@@ -353,7 +339,7 @@ function ApprovalCard({
   return (
     <div className="border border-gold-light/40 rounded-xl bg-white shadow-lg overflow-hidden">
       <div className="bg-navy px-4 py-2.5 flex items-center gap-2 rounded-t-xl">
-        <AlertTriangle className="h-4 w-4 text-cream" />
+        <AlertTriangle className="h-4 w-4 text-cream" aria-hidden="true" />
         <span className="font-sans text-sm font-semibold text-cream">Approval Required</span>
       </div>
 
@@ -396,25 +382,19 @@ function ApprovalCard({
         )}
 
         <div className="flex gap-3 pt-3 border-t border-gold-light/30">
-          <button
-            onClick={() => handleDecision(true)}
-            className="px-5 py-2.5 bg-navy text-cream font-sans text-xs font-semibold rounded-md hover:bg-navy-light btn-transition min-h-touch"
-          >
+          <Button variant="primary" size="sm" onClick={() => handleDecision(true)}>
             Confirm Booking
-          </button>
-          <button
-            onClick={() => handleDecision(false)}
-            className="px-5 py-2.5 text-charcoal font-sans text-xs font-semibold border border-navy/20 rounded-md hover:bg-navy hover:text-cream btn-transition min-h-touch"
-          >
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => handleDecision(false)}>
             Reject
-          </button>
+          </Button>
           {tripId && (
             <Link
               href={`/trips/${tripId}`}
-              className="px-4 py-2.5 text-gold font-sans text-xs font-semibold hover:text-gold-dark btn-transition min-h-touch flex items-center gap-1 ml-auto"
+              className="px-4 py-2.5 text-gold font-sans text-xs font-semibold hover:text-gold-dark btn-transition min-h-touch flex items-center gap-1 ml-auto focus:outline-none focus:ring-2 focus:ring-gold/30 rounded-md"
             >
               Review Full Itinerary
-              <ChevronRight className="h-3 w-3" />
+              <ChevronRight className="h-3 w-3" aria-hidden="true" />
             </Link>
           )}
         </div>
@@ -481,7 +461,7 @@ function TimelineEvent({
           <div className="bg-success-soft border border-success-border rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="h-5 w-5 bg-success rounded-full flex items-center justify-center flex-shrink-0">
-                <Check className="h-3 w-3 text-white" />
+                <Check className="h-3 w-3 text-white" aria-hidden="true" />
               </span>
               <span className="font-sans text-sm font-semibold text-success">Trip Complete</span>
             </div>
@@ -501,10 +481,10 @@ function TimelineEvent({
             {tripId && (
               <Link
                 href={`/trips/${tripId}`}
-                className="mt-3 inline-flex items-center gap-1 px-5 py-2.5 bg-navy text-cream font-sans text-sm font-semibold rounded-md hover:bg-navy-light btn-transition"
+                className="mt-3 inline-flex items-center gap-1 px-5 py-2.5 bg-navy text-cream font-sans text-sm font-semibold rounded-md hover:bg-navy-light btn-transition focus:outline-none focus:ring-2 focus:ring-gold/30"
               >
                 View Trip Plan
-                <ChevronRight className="h-3 w-3 ml-1" />
+                <ChevronRight className="h-3 w-3 ml-1" aria-hidden="true" />
               </Link>
             )}
           </div>
@@ -516,7 +496,7 @@ function TimelineEvent({
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <span className="text-gold"><DomainIcon domain={booking.domain} /></span>
-                      <span className="font-sans text-xs font-semibold text-gold uppercase tracking-wide">{domainLabels[booking.domain] || booking.domain}</span>
+                      <span className="font-sans text-xs font-semibold text-gold uppercase tracking-wide">{DOMAIN_CONFIG[booking.domain]?.label || booking.domain}</span>
                     </div>
                     <span className="font-serif text-base text-navy">${booking.amount.toFixed(2)}</span>
                   </div>
@@ -543,7 +523,7 @@ function TimelineEvent({
         <div className="bg-error-soft border border-error rounded-lg p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="h-5 w-5 bg-error rounded-full flex items-center justify-center flex-shrink-0">
-              <X className="h-3 w-3 text-white" />
+              <X className="h-3 w-3 text-white" aria-hidden="true" />
             </span>
             <span className="font-sans text-sm font-semibold text-error">Trip Failed</span>
           </div>

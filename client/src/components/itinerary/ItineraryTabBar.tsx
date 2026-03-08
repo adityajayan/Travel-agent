@@ -19,7 +19,7 @@ export default function ItineraryTabBar({ activeTab, onTabChange }: ItineraryTab
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
-          className={`flex-1 px-4 py-2.5 font-sans text-xs font-semibold btn-transition ${
+          className={`flex-1 px-4 py-2.5 font-sans text-xs font-semibold btn-transition focus:outline-none focus:ring-2 focus:ring-gold/30 focus:ring-inset ${
             activeTab === tab.id
               ? "bg-navy text-cream"
               : "text-slate hover:text-navy hover:bg-cream-dark"

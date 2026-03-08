@@ -50,6 +50,22 @@ export interface CreateTripOptions {
   parsed_params?: ParsedTripParams;
 }
 
+export interface DateSuggestion {
+  label: string;
+  reason: string;
+  departure_date: string;
+  return_date: string;
+}
+
+export interface DateSuggestResponse {
+  suggestions: DateSuggestion[];
+}
+
+export interface NearestCityResponse {
+  city: string;
+  country: string;
+}
+
 /** Result of the auth probe: "ok" = no auth needed, "auth_required" = need JWT, "unavailable" = backend down */
 export type AuthStatus = "ok" | "auth_required" | "unavailable";
 
@@ -221,6 +237,30 @@ class ApiClient {
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Get policies failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async suggestDates(destination: string, durationDays: number): Promise<DateSuggestResponse> {
+    const res = await fetch("/api/trips/parse/suggest-dates", {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ destination, duration_days: durationDays }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Suggest dates failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async nearestCity(lat: number, lon: number): Promise<NearestCityResponse> {
+    const res = await fetch(`/api/trips/parse/nearest-city?lat=${lat}&lon=${lon}`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Nearest city failed: ${res.status}`);
     }
     return res.json();
   }
