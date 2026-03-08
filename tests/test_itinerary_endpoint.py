@@ -26,7 +26,7 @@ async def test_get_itinerary_empty_trip(api_client):
     data = resp.json()
     assert data["trip_id"] == trip_id
     assert data["title"] == "Trip to Tokyo"
-    assert data["status"] == "pending"
+    assert data["status"] == "planning"
     assert data["days"] == []
     assert data["budget"]["allocated"] == 0
 
@@ -91,7 +91,7 @@ async def test_get_itinerary_with_pending_approval(api_client, engine):
     approval_id = str(uuid.uuid4())
 
     async with factory() as session:
-        session.add(Trip(id=trip_id, goal="Trip to Rome", status="awaiting_approval"))
+        session.add(Trip(id=trip_id, goal="Trip to Rome", status="review"))
         session.add(Booking(
             id=str(uuid.uuid4()), trip_id=trip_id, domain="flight",
             provider="Alitalia", amount=800.0, details={},
@@ -121,7 +121,7 @@ async def test_patch_itinerary_item_approve(api_client, engine):
     approval_id = str(uuid.uuid4())
 
     async with factory() as session:
-        session.add(Trip(id=trip_id, goal="Test trip", status="awaiting_approval"))
+        session.add(Trip(id=trip_id, goal="Test trip", status="review"))
         session.add(Booking(
             id=booking_id, trip_id=trip_id, domain="hotel",
             provider="Marriott", amount=500.0, details={},
@@ -149,7 +149,7 @@ async def test_patch_itinerary_item_reject(api_client, engine):
     approval_id = str(uuid.uuid4())
 
     async with factory() as session:
-        session.add(Trip(id=trip_id, goal="Test trip", status="awaiting_approval"))
+        session.add(Trip(id=trip_id, goal="Test trip", status="review"))
         session.add(Booking(
             id=booking_id, trip_id=trip_id, domain="flight",
             provider="Delta", amount=700.0, details={},

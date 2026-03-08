@@ -14,10 +14,13 @@ from agents.hotel_agent import HotelAgent
 from agents.orchestrator_agent import OrchestratorAgent, _detect_domains
 from agents.transport_agent import TransportAgent
 from api.schemas import (
-    BookingOut, BudgetBreakdown, ChatMessageIn, ChatMessageOut,
+    ArchiveResponse, BookingOut, BudgetBreakdown, ChatMessageIn, ChatMessageOut,
     ClarificationResponse, ItineraryDay, ItineraryItem,
     PolicyReportResponse, PolicyViolationRowOut, TripCreate, TripItinerary,
     TripRead, UpdateItineraryItemRequest,
+)
+from core.trip_lifecycle import (
+    InvalidTransitionError, TERMINAL_STATES, TripStatus, transition_trip,
 )
 from core.approval_gate import ApprovalGate
 from core.audit_logger import AuditLogger
@@ -75,8 +78,7 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
     if not trip:
         return
 
-    trip.status = "running"
-    await db.commit()
+    # Trip is already in "planning" status from creation — no transition needed.
 
     try:
         # ── M3: Policy resolution (INV-9: fail early if explicit policy is inactive) ──
@@ -88,8 +90,7 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
                 await policy_engine.load_policy(policy_id)
         except PolicyNotFoundError as exc:
             logger.error("Policy resolution failed for trip %s: %s", trip_id, exc)
-            trip.status = "failed"
-            await db.commit()
+            await transition_trip(trip, TripStatus.FAILED, db)
             bus = EventBus.get_or_create(trip_id)
             await bus.emit({"type": "trip_failed", "message": str(exc)})
             return
@@ -167,10 +168,21 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
         narrative = await agent.run(enriched_goal)
 
         await db.refresh(trip)
-        if trip.status == "running":
-            trip.status = "complete"
+        if trip.status == TripStatus.PLANNING:
             trip.summary_text = narrative
+            # Check if there are pending approvals
+            pending_result = await db.execute(
+                select(HumanApproval).where(
+                    HumanApproval.trip_id == trip_id,
+                    HumanApproval.status == "pending",
+                )
+            )
+            has_pending = pending_result.scalar_one_or_none() is not None
+            await transition_trip(trip, TripStatus.REVIEW, db, commit=False)
+            if not has_pending:
+                await transition_trip(trip, TripStatus.COMPLETE, db, commit=False)
             await db.commit()
+            await db.refresh(trip)
 
         # Fetch bookings to include in completion event
         booking_result = await db.execute(
@@ -201,8 +213,10 @@ async def _run_agent_task(trip_id: str, goal: str, db: AsyncSession) -> None:
     except Exception as exc:
         logger.error("Agent task failed for trip %s: %s", trip_id, exc)
         await db.refresh(trip)
-        trip.status = "failed"
-        await db.commit()
+        try:
+            await transition_trip(trip, TripStatus.FAILED, db)
+        except InvalidTransitionError:
+            logger.warning("Trip %s already in terminal state %s", trip_id, trip.status)
         bus = EventBus.get_or_create(trip_id)
         await bus.emit({"type": "trip_failed", "message": "An internal error occurred while processing your trip."})
 
@@ -229,7 +243,7 @@ async def create_trip(
     trip = Trip(
         id=str(uuid.uuid4()),
         goal=body.goal,
-        status="pending",
+        status=TripStatus.PLANNING,
         user_id=effective_user_id,
         total_budget=body.total_budget,
         org_id=body.org_id,
@@ -251,6 +265,7 @@ async def create_trip(
         policy_id=trip.policy_id,
         created_at=trip.created_at,
         summary_text=trip.summary_text,
+        is_archived=trip.is_archived,
         bookings=[],
     )
 
@@ -282,16 +297,19 @@ async def get_trip(
         policy_id=trip.policy_id,
         created_at=trip.created_at,
         summary_text=trip.summary_text,
+        is_archived=trip.is_archived,
         bookings=[BookingOut.model_validate(b) for b in bookings],
     )
 
 
 @router.get("", response_model=list[TripRead])
 async def list_trips(
+    archived: bool = False,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    result = await db.execute(select(Trip))
+    query = select(Trip).where(Trip.is_archived == archived)
+    result = await db.execute(query)
     trips = result.scalars().all()
     return [
         TripRead(
@@ -305,6 +323,7 @@ async def list_trips(
             policy_id=t.policy_id,
             created_at=t.created_at,
             summary_text=t.summary_text,
+            is_archived=t.is_archived,
             bookings=[],
         )
         for t in trips
@@ -338,20 +357,100 @@ async def update_trip(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    """Cancel a running trip."""
+    """Cancel a trip."""
     result = await db.execute(select(Trip).where(Trip.id == trip_id))
     trip = result.scalar_one_or_none()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
 
-    if trip.status in ("complete", "failed", "cancelled"):
-        raise HTTPException(status_code=400, detail=f"Trip already {trip.status}")
+    try:
+        await transition_trip(trip, TripStatus.CANCELLED, db)
+    except InvalidTransitionError:
+        raise HTTPException(status_code=400, detail=f"Cannot cancel trip in '{trip.status}' status")
 
-    trip.status = "cancelled"
-    await db.commit()
     bus = EventBus.get_or_create(trip_id)
     await bus.emit({"type": "trip_failed", "message": "Trip cancelled by user"})
     return {"status": "cancelled"}
+
+
+@router.post("/{trip_id}/retry", response_model=TripRead, status_code=200)
+async def retry_trip(
+    trip_id: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Re-run agents on a failed trip."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    try:
+        await transition_trip(trip, TripStatus.PLANNING, db)
+    except InvalidTransitionError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can only retry failed trips (current: {trip.status})",
+        )
+
+    background_tasks.add_task(_run_agent_task, trip.id, trip.goal, db)
+
+    booking_result = await db.execute(
+        select(Booking).where(Booking.trip_id == trip_id)
+    )
+    bookings = booking_result.scalars().all()
+    return TripRead(
+        id=trip.id,
+        goal=trip.goal,
+        status=trip.status,
+        total_spent=trip.total_spent,
+        user_id=trip.user_id,
+        total_budget=trip.total_budget,
+        org_id=trip.org_id,
+        policy_id=trip.policy_id,
+        created_at=trip.created_at,
+        summary_text=trip.summary_text,
+        is_archived=trip.is_archived,
+        bookings=[BookingOut.model_validate(b) for b in bookings],
+    )
+
+
+@router.patch("/{trip_id}/archive", response_model=ArchiveResponse)
+async def archive_trip(
+    trip_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Archive a terminal-state trip."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if trip.status not in TERMINAL_STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only terminal-state trips can be archived (current: {trip.status})",
+        )
+    trip.is_archived = True
+    await db.commit()
+    return ArchiveResponse(id=trip.id, is_archived=True)
+
+
+@router.patch("/{trip_id}/unarchive", response_model=ArchiveResponse)
+async def unarchive_trip(
+    trip_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Unarchive a trip."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    trip.is_archived = False
+    await db.commit()
+    return ArchiveResponse(id=trip.id, is_archived=False)
 
 
 @router.get("/{trip_id}/policy-report", response_model=PolicyReportResponse)

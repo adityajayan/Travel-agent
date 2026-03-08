@@ -40,9 +40,15 @@ class TripRead(BaseModel):
     policy_id: Optional[str] = None
     created_at: Optional[datetime] = None
     summary_text: Optional[str] = None
+    is_archived: bool = False
     bookings: List[BookingOut] = []
 
     model_config = {"from_attributes": True}
+
+
+class ArchiveResponse(BaseModel):
+    id: str
+    is_archived: bool
 
 
 # ── Approvals ──────────────────────────────────────────────────────────────────

@@ -44,7 +44,7 @@ async def approval_gate(db):
 @pytest_asyncio.fixture
 async def trip(db) -> Trip:
     """Insert a Trip row and return it."""
-    t = Trip(id=str(uuid.uuid4()), goal="Test trip", status="pending")
+    t = Trip(id=str(uuid.uuid4()), goal="Test trip", status="planning")
     db.add(t)
     await db.commit()
     await db.refresh(t)

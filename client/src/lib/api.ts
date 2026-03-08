@@ -120,8 +120,9 @@ class ApiClient {
     return res.json();
   }
 
-  async getTrips() {
-    const res = await fetch("/api/trips", { headers: this.headers() });
+  async getTrips(archived = false) {
+    const url = archived ? "/api/trips?archived=true" : "/api/trips";
+    const res = await fetch(url, { headers: this.headers() });
     if (!res.ok) {
       if (res.status >= 502 && res.status <= 504) {
         throw new Error("Unable to reach the server. Please try again later.");
@@ -225,6 +226,42 @@ class ApiClient {
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Send chat failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async retryTrip(tripId: string) {
+    const res = await fetch(`/api/trips/${tripId}/retry`, {
+      method: "POST",
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Retry trip failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async archiveTrip(tripId: string) {
+    const res = await fetch(`/api/trips/${tripId}/archive`, {
+      method: "PATCH",
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Archive trip failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async unarchiveTrip(tripId: string) {
+    const res = await fetch(`/api/trips/${tripId}/unarchive`, {
+      method: "PATCH",
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Unarchive trip failed: ${res.status}`);
     }
     return res.json();
   }

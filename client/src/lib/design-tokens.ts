@@ -1,12 +1,14 @@
 // Centralized design tokens — single source of truth for status, domain, and budget colors
 
 export const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  pending: { label: "Pending", className: "border-gold-light text-slate" },
-  running: { label: "Running", className: "border-gold text-gold" },
+  // Trip-level statuses
+  planning: { label: "Planning", className: "border-gold text-gold" },
+  review: { label: "In Review", className: "border-gold text-gold" },
   complete: { label: "Complete", className: "border-success-border text-success" },
   completed: { label: "Complete", className: "border-success-border text-success" },
   failed: { label: "Failed", className: "border-error text-error" },
   cancelled: { label: "Cancelled", className: "border-gold-light text-slate" },
+  // Item-level statuses
   awaiting_approval: { label: "Needs Approval", className: "border-gold text-gold" },
   confirmed: { label: "Confirmed", className: "border-success-border text-success" },
   rejected: { label: "Rejected", className: "border-error text-error" },

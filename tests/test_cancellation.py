@@ -39,7 +39,7 @@ async def db(engine) -> AsyncSession:
 
 @pytest_asyncio.fixture
 async def trip(db) -> Trip:
-    t = Trip(id=str(uuid.uuid4()), goal="Test trip", status="pending")
+    t = Trip(id=str(uuid.uuid4()), goal="Test trip", status="planning")
     db.add(t)
     await db.commit()
     await db.refresh(t)

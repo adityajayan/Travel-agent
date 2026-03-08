@@ -188,7 +188,7 @@ async def test_trip_user_relationship(auth_session_factory):
         trip = Trip(
             id=str(uuid.uuid4()),
             goal="Test trip",
-            status="pending",
+            status="planning",
             user_id=user.id,
         )
         session.add(trip)

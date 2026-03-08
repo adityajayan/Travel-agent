@@ -461,8 +461,15 @@ class OrchestratorAgent:
         return await agent.run(sub_goal)
 
     async def _mark_trip_failed(self) -> None:
+        from core.trip_lifecycle import InvalidTransitionError, TripStatus, transition_trip
+
         result = await self.db.execute(select(Trip).where(Trip.id == self.trip_id))
         trip = result.scalar_one_or_none()
         if trip:
-            trip.status = "failed"
-            await self.db.commit()
+            try:
+                await transition_trip(trip, TripStatus.FAILED, self.db)
+            except InvalidTransitionError:
+                logger.warning(
+                    "Could not transition trip %s to failed (current: %s)",
+                    self.trip_id, trip.status,
+                )

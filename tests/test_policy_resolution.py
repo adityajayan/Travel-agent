@@ -37,7 +37,7 @@ async def _make_trip(db: AsyncSession, org_id=None, policy_id=None) -> Trip:
     t = Trip(
         id=str(uuid.uuid4()),
         goal="Test",
-        status="pending",
+        status="planning",
         org_id=org_id,
         policy_id=policy_id,
     )
@@ -194,7 +194,7 @@ async def test_background_task_fails_on_inactive_explicit_policy(api_client, eng
         trip = Trip(
             id=str(uuid.uuid4()),
             goal="Book flight",
-            status="pending",
+            status="planning",
             org_id="eta",
             policy_id=policy.id,
         )
@@ -224,7 +224,7 @@ async def test_background_task_runs_normally_without_policy(api_client, engine):
         trip = Trip(
             id=str(uuid.uuid4()),
             goal="Book a flight",
-            status="pending",
+            status="planning",
         )
         session.add(trip)
         await session.commit()

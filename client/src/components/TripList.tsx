@@ -13,6 +13,7 @@ interface Trip {
   created_at?: string;
   total_spent?: number;
   summary_text?: string;
+  is_archived?: boolean;
 }
 
 interface TripListProps {
@@ -31,7 +32,9 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = trips.filter((trip) => {
-    if (statusFilter !== "all" && trip.status !== statusFilter) return false;
+    if (statusFilter === "active" && trip.status !== "planning" && trip.status !== "review") return false;
+    if (statusFilter === "complete" && trip.status !== "complete") return false;
+    if (statusFilter !== "all" && statusFilter !== "active" && statusFilter !== "complete" && trip.status !== statusFilter) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       return trip.goal.toLowerCase().includes(q) || trip.id.toLowerCase().includes(q);
@@ -67,7 +70,7 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
       />
 
       <div className="flex gap-1 mb-3 overflow-x-auto">
-        {["all", "running", "complete", "failed", "cancelled"].map((s) => (
+        {["all", "active", "complete", "failed", "cancelled"].map((s) => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
@@ -77,7 +80,7 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
                 : "text-slate hover:text-navy hover:bg-cream-dark"
             }`}
           >
-            {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+            {s === "all" ? "All" : s === "active" ? "Active" : s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
         ))}
       </div>
@@ -109,7 +112,7 @@ export default function TripList({ trips, activeTrip, onSelect, onRefresh }: Tri
                   {trip.total_spent != null && trip.total_spent > 0 && (
                     <span className="font-serif text-sm text-charcoal">${trip.total_spent.toFixed(0)}</span>
                   )}
-                  {(trip.status === "complete" || trip.status === "completed" || trip.status === "awaiting_approval") && (
+                  {(trip.status === "complete" || trip.status === "review") && (
                     <Link
                       href={`/trips/${trip.id}`}
                       onClick={(e) => e.stopPropagation()}

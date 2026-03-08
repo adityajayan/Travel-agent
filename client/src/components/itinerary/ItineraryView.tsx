@@ -47,7 +47,7 @@ export default function ItineraryView({ tripId, onBack }: ItineraryViewProps) {
   }, [fetchItinerary]);
 
   useWebSocket(
-    itinerary?.status === "awaiting_approval" || itinerary?.status === "running"
+    itinerary?.status === "review" || itinerary?.status === "planning"
       ? tripId
       : null,
     (event) => {

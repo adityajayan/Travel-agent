@@ -90,7 +90,7 @@ async def test_single_agent_flight_happy_path(int_client, session_factory):
     async with session_factory() as session:
         result = await session.execute(select(Trip).where(Trip.id == trip_id))
         trip = result.scalar_one()
-        assert trip.status == "pending"
+        assert trip.status == "planning"
 
     # Step 3: Pre-create an approved approval so the booking goes through
     async with session_factory() as session:

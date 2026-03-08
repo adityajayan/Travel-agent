@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Plus, ChevronUp } from "lucide-react";
 import VoiceInputButton from "./VoiceInputButton";
 import { CreateTripOptions, ParseTripResponse, ParsedTripParams, DateSuggestion, apiClient } from "@/lib/api";
 import { searchAirports, Airport } from "@/lib/airports";
@@ -11,6 +12,7 @@ import Card from "@/components/ui/Card";
 interface TripFormProps {
   onSubmit: (options: CreateTripOptions) => void;
   disabled?: boolean;
+  activeTripSelected?: boolean;
 }
 
 const PLACEHOLDER_EXAMPLES = [
@@ -35,13 +37,26 @@ const DOMAIN_LABELS: Record<string, string> = {
   activity: "Activities",
 };
 
-export default function TripForm({ onSubmit, disabled }: TripFormProps) {
+export default function TripForm({ onSubmit, disabled, activeTripSelected }: TripFormProps) {
   const [text, setText] = useState("");
   const [parsing, setParsing] = useState(false);
   const [parseResult, setParseResult] = useState<ParseTripResponse | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [expanded, setExpanded] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-collapse on desktop when a trip is selected
+  useEffect(() => {
+    if (activeTripSelected && window.innerWidth >= 1024) setExpanded(false);
+  }, [activeTripSelected]);
+
+  // Re-expand if window shrinks below desktop breakpoint
+  useEffect(() => {
+    const handleResize = () => { if (window.innerWidth < 1024) setExpanded(true); };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -100,6 +115,7 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
     setText("");
     setParseResult(null);
     setParseError(null);
+    if (window.innerWidth >= 1024) setExpanded(false);
   };
 
   const handleAdjust = () => {
@@ -112,10 +128,28 @@ export default function TripForm({ onSubmit, disabled }: TripFormProps) {
     setText((prev) => (prev ? prev + " " + transcript : transcript));
   };
 
+  if (!expanded) {
+    return (
+      <Card hover padding="none">
+        <button onClick={() => setExpanded(true)} className="w-full flex items-center gap-3 p-4 lg:p-5 text-left btn-transition focus:outline-none focus:ring-2 focus:ring-gold/30 rounded-xl">
+          <Plus className="h-4 w-4 text-navy" />
+          <span className="font-sans text-sm text-slate">Plan a new trip...</span>
+        </button>
+      </Card>
+    );
+  }
+
   return (
     <Card hover padding="none">
       <form onSubmit={handleSubmit} className="p-4 lg:p-6">
-        <p className="eyebrow mb-4">Plan Your Trip</p>
+        <div className="flex items-center justify-between mb-4">
+          <p className="eyebrow">Plan Your Trip</p>
+          {activeTripSelected && (
+            <Button variant="ghost" size="sm" onClick={() => setExpanded(false)} className="hidden lg:flex items-center gap-1">
+              <ChevronUp className="h-3 w-3" /> Minimize
+            </Button>
+          )}
+        </div>
 
         <div className="relative mb-4">
           <textarea

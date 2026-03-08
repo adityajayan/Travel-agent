@@ -41,6 +41,7 @@ export interface Trip {
   total_spent?: number;
   total_budget?: number;
   summary_text?: string;
+  is_archived?: boolean;
   bookings?: Array<{
     domain: string;
     provider: string;
@@ -98,7 +99,7 @@ export default function Home() {
 
       if (tripEvent.type === "trip_completed" || tripEvent.type === "trip_failed") {
         setActiveTrip((prev) =>
-          prev ? { ...prev, status: tripEvent.type === "trip_completed" ? "completed" : "failed" } : null
+          prev ? { ...prev, status: tripEvent.type === "trip_completed" ? "complete" : "failed" } : null
         );
         refreshTrips();
       }
@@ -160,6 +161,31 @@ export default function Home() {
     }
   };
 
+  const handleRetryTrip = async (tripId: string) => {
+    try {
+      const updated = await apiClient.retryTrip(tripId);
+      setActiveTrip(updated);
+      setEvents([]);
+      setView("timeline");
+      setTripView("timeline");
+      toast("Trip retrying — agents are replanning", "success");
+      refreshTrips();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to retry trip");
+    }
+  };
+
+  const handleArchiveTrip = async (tripId: string) => {
+    try {
+      await apiClient.archiveTrip(tripId);
+      toast("Trip archived", "info");
+      setActiveTrip(null);
+      refreshTrips();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to archive trip");
+    }
+  };
+
   const handleCancelTrip = async (tripId: string) => {
     try {
       await apiClient.cancelTrip(tripId);
@@ -175,7 +201,7 @@ export default function Home() {
     try {
       const full = await apiClient.getTrip(trip.id);
       setActiveTrip(full);
-      if (full.status === "complete" || full.status === "completed" || full.status === "failed" || full.status === "cancelled") {
+      if (full.status === "complete" || full.status === "failed" || full.status === "cancelled") {
         setView("detail");
         setTripView("detail");
         setEvents([]);
@@ -348,7 +374,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
               />
             </div>
             <div className="col-span-2 space-y-6">
-              <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
+              <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "planning"} activeTripSelected={!!activeTrip} />
 
               {activeTrip && view === "detail" && (
                 <ItineraryView
@@ -362,12 +388,17 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="font-serif text-xl font-medium text-navy">{activeTrip.goal}</h2>
                     <div className="flex items-center gap-2">
-                      {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
+                      {activeTrip.status === "complete" && (
                         <Button variant="ghost" size="sm" onClick={() => router.push(`/trips/${activeTrip.id}`)} className="text-gold border border-gold-light hover:bg-gold/8">
                           View Details
                         </Button>
                       )}
-                      {(activeTrip.status === "pending" || activeTrip.status === "running") && (
+                      {activeTrip.status === "failed" && (
+                        <Button variant="primary" size="sm" onClick={() => handleRetryTrip(activeTrip.id)}>
+                          Retry
+                        </Button>
+                      )}
+                      {(activeTrip.status === "planning" || activeTrip.status === "review") && (
                         <Button variant="secondary" size="sm" onClick={() => handleCancelTrip(activeTrip.id)}>
                           Cancel
                         </Button>
@@ -428,12 +459,17 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-serif text-base font-medium text-navy truncate flex-1 mr-2">{activeTrip.goal}</h2>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {(activeTrip.status === "complete" || activeTrip.status === "completed") && (
+                      {activeTrip.status === "complete" && (
                         <Button variant="ghost" size="sm" onClick={() => { setTripView("detail"); setView("detail"); }} className="text-gold border border-gold-light hover:bg-gold/8">
                           Details
                         </Button>
                       )}
-                      {(activeTrip.status === "pending" || activeTrip.status === "running") && (
+                      {activeTrip.status === "failed" && (
+                        <Button variant="primary" size="sm" onClick={() => handleRetryTrip(activeTrip.id)}>
+                          Retry
+                        </Button>
+                      )}
+                      {(activeTrip.status === "planning" || activeTrip.status === "review") && (
                         <Button variant="secondary" size="sm" onClick={() => handleCancelTrip(activeTrip.id)}>
                           Cancel
                         </Button>
@@ -463,7 +499,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
         )}
 
         {mobileTab === "plan" && (
-          <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "running"} />
+          <TripForm onSubmit={handleCreateTrip} disabled={activeTrip?.status === "planning"} />
         )}
 
         {mobileTab === "settings" && (
@@ -475,7 +511,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
         activeTab={mobileTab}
         onTabChange={handleMobileTabChange}
         tripCount={trips.length}
-        hasActiveTrip={activeTrip?.status === "running"}
+        hasActiveTrip={activeTrip?.status === "planning"}
       />
 
       <InstallPrompt />
@@ -484,5 +520,5 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
 }
 
 function TripStatusBadge({ status, connected }: { status: string; connected: boolean }) {
-  return <StatusBadge status={status} pulse={connected && status === "running"} />;
+  return <StatusBadge status={status} pulse={connected && status === "planning"} />;
 }

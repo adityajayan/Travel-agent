@@ -15,7 +15,7 @@ async def test_create_trip_returns_202(api_client):
         resp = await api_client.post("/trips", json={"goal": "Fly me to Paris"})
     assert resp.status_code == 202
     data = resp.json()
-    assert data["status"] == "pending"
+    assert data["status"] == "planning"
     assert data["goal"] == "Fly me to Paris"
     assert "id" in data
 
@@ -66,7 +66,7 @@ async def test_decide_approval_approve(api_client, engine):
     approval_id = str(uuid.uuid4())
 
     async with factory() as session:
-        session.add(Trip(id=trip_id, goal="Test", status="pending"))
+        session.add(Trip(id=trip_id, goal="Test", status="review"))
         session.add(
             HumanApproval(
                 id=approval_id,
@@ -95,7 +95,7 @@ async def test_decide_approval_reject(api_client, engine):
     approval_id = str(uuid.uuid4())
 
     async with factory() as session:
-        session.add(Trip(id=trip_id, goal="Test", status="pending"))
+        session.add(Trip(id=trip_id, goal="Test", status="review"))
         session.add(
             HumanApproval(
                 id=approval_id,
@@ -131,7 +131,7 @@ async def test_list_approvals_by_trip(api_client, engine):
     trip_id = str(uuid.uuid4())
 
     async with factory() as session:
-        session.add(Trip(id=trip_id, goal="Test", status="pending"))
+        session.add(Trip(id=trip_id, goal="Test", status="review"))
         session.add(
             HumanApproval(
                 id=str(uuid.uuid4()),

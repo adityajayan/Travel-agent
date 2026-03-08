@@ -29,8 +29,9 @@ class Trip(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     goal = Column(String, nullable=False)
-    # pending | running | awaiting_approval | complete | failed
-    status = Column(String, default="pending", nullable=False)
+    # planning | review | complete | cancelled | failed
+    status = Column(String, default="planning", nullable=False)
+    is_archived = Column(Boolean, default=False, server_default="0", nullable=False)
     total_spent = Column(Float, default=0.0, nullable=False)
     # M3/M6 additions
     user_id = Column(String, ForeignKey("users.id"), nullable=True)
@@ -175,3 +176,4 @@ class TripChatMessage(Base):
 Index("ix_policies_org_active", CorporatePolicy.org_id, CorporatePolicy.is_active)
 Index("ix_violations_trip", PolicyViolation.trip_id)
 Index("ix_chat_messages_trip", TripChatMessage.trip_id)
+Index("ix_trips_archived", Trip.is_archived)

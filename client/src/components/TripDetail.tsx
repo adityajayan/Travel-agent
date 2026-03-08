@@ -22,13 +22,16 @@ interface TripDetailProps {
     total_spent?: number;
     total_budget?: number;
     summary_text?: string;
+    is_archived?: boolean;
     bookings?: BookingData[];
   };
   onCancel?: (tripId: string) => void;
+  onRetry?: (tripId: string) => void;
+  onArchive?: (tripId: string) => void;
   onBack?: () => void;
 }
 
-export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) {
+export default function TripDetail({ trip, onCancel, onRetry, onArchive, onBack }: TripDetailProps) {
   const bookings = trip.bookings || [];
 
   const formatDate = (dateStr?: string) => {
@@ -47,7 +50,9 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
     costByDomain[b.domain] = (costByDomain[b.domain] || 0) + b.amount;
   }
 
-  const canCancel = trip.status === "pending" || trip.status === "running";
+  const canCancel = trip.status === "planning" || trip.status === "review";
+  const canRetry = trip.status === "failed";
+  const canArchive = trip.status === "complete" || trip.status === "cancelled" || trip.status === "failed";
 
   return (
     <Card padding="none">
@@ -68,9 +73,19 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={trip.status} />
+            {canRetry && onRetry && (
+              <Button variant="primary" size="sm" onClick={() => onRetry(trip.id)}>
+                Retry
+              </Button>
+            )}
             {canCancel && onCancel && (
               <Button variant="secondary" size="sm" onClick={() => onCancel(trip.id)}>
                 Cancel Trip
+              </Button>
+            )}
+            {canArchive && onArchive && !trip.is_archived && (
+              <Button variant="ghost" size="sm" onClick={() => onArchive(trip.id)}>
+                Archive
               </Button>
             )}
           </div>
@@ -138,7 +153,7 @@ export default function TripDetail({ trip, onCancel, onBack }: TripDetailProps) 
         </div>
       )}
 
-      {!trip.summary_text && bookings.length === 0 && trip.status !== "running" && trip.status !== "pending" && (
+      {!trip.summary_text && bookings.length === 0 && trip.status !== "planning" && trip.status !== "review" && (
         <div className="p-6 text-center text-slate font-sans text-sm">
           No booking details available for this trip.
         </div>

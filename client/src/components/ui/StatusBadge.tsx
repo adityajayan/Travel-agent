@@ -9,7 +9,7 @@ interface StatusBadgeProps {
 }
 
 export default function StatusBadge({ status, pulse, className = "" }: StatusBadgeProps) {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.planning;
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
