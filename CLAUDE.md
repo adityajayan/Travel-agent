@@ -92,14 +92,14 @@ SQLite with async SQLAlchemy. Tables auto-created on startup via `init_db()`. Au
 
 ## Design System
 
-The UI follows the **Bold Editorial** design system defined in `docs/DESIGN_SYSTEM.md`. This is the single source of truth for all visual decisions. Key rules:
+The UI follows a **Classical Gold/Navy** theme. The source of truth is `client/src/app/globals.css` (CSS variables via `@theme`) and `client/src/lib/design-tokens.ts` (status/domain colors).
 
-- **Colors:** Cream background (#f8f5ef), Navy text (#1a1a1a), Vermillion accent (#c0392b, use sparingly)
-- **Fonts:** Playfair Display (headlines), Syne (UI/buttons/labels), DM Sans (body), Lora (quotes only)
-- **Border radius: 0 everywhere** — no rounded corners on any element, no exceptions
-- **Borders:** 2px solid #1a1a1a for structural, 1px #e0dbd3 for internal dividers
-- **No gradients, no drop shadows** — use hard offset shadow (8px 8px 0 #1a1a1a) for emphasis
-- Re-read `docs/DESIGN_SYSTEM.md` before any visual change
+- **Colors:** Cream background (#FBF7F0), Navy (#1B2A4A) for text/buttons, Gold accent (#C9963B) for highlights/labels/hover. Success (#1a7a4c), Error (#b91c1c). Soft variants use rgba with 0.08 opacity for backgrounds.
+- **Fonts:** Cormorant Garamond (headlines, serif), Inter (body/UI/buttons, sans-serif). Both loaded from Google Fonts.
+- **Border radius:** `rounded-md` (buttons, inputs), `rounded-lg` (cards, timeline), `rounded-xl` (major cards), `rounded-full` (dots/indicators)
+- **Borders:** 1px solid with opacity — `border-gold-light/40` for cards/dividers, `border-navy/20` for inputs. Focus rings use `ring-gold/30`.
+- **Shadows:** Standard Tailwind (`shadow-sm`, `shadow-md`, `shadow-lg`) — no hard offset shadows
+- **Patterns:** `.eyebrow` (gold bar + uppercase label), `.card-hover-bar` (gold bar scales on hover), staggered `fade-up` animations for lists
 
 ## Key Invariants
 
