@@ -53,7 +53,29 @@ class Settings(BaseSettings):
 
     # M6 — Auth
     auth_provider_url: str = ""
-    auth_secret: str = ""
+    auth_secret: str = ""  # legacy — use jwt_secret instead
+
+    # Google OAuth
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:3000/api/auth/callback/google"
+    jwt_secret: str = ""  # used to sign/verify JWTs issued by this app
+    jwt_expiry_hours: int = 72
+    frontend_url: str = "http://localhost:3000"
+
+    # Waitlist / invite-code gate
+    invite_codes: str = ""  # comma-separated valid invite codes
+    waitlist_enabled: bool = True
+
+    # Stripe payments
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+    service_fee_cents: int = 999  # $9.99 service fee
+
+    # Email (Resend)
+    resend_api_key: str = ""
+    email_from: str = "Concierge <bookings@concierge.com>"
 
     # M6 — Push notifications
     vapid_public_key: str = ""

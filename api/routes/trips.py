@@ -266,6 +266,7 @@ async def create_trip(
         created_at=trip.created_at,
         summary_text=trip.summary_text,
         is_archived=trip.is_archived,
+        payment_status=trip.payment_status,
         bookings=[],
     )
 
@@ -298,6 +299,7 @@ async def get_trip(
         created_at=trip.created_at,
         summary_text=trip.summary_text,
         is_archived=trip.is_archived,
+        payment_status=trip.payment_status,
         bookings=[BookingOut.model_validate(b) for b in bookings],
     )
 
@@ -324,6 +326,7 @@ async def list_trips(
             created_at=t.created_at,
             summary_text=t.summary_text,
             is_archived=t.is_archived,
+            payment_status=t.payment_status,
             bookings=[],
         )
         for t in trips
@@ -412,6 +415,7 @@ async def retry_trip(
         created_at=trip.created_at,
         summary_text=trip.summary_text,
         is_archived=trip.is_archived,
+        payment_status=trip.payment_status,
         bookings=[BookingOut.model_validate(b) for b in bookings],
     )
 
@@ -677,6 +681,98 @@ async def update_itinerary_item(
         return {"status": "alternatives_requested", "item_id": item_id, "notes": body.notes}
 
     raise HTTPException(status_code=400, detail=f"Unknown action: {body.action}")
+
+
+# ── Booking Cancellation ─────────────────────────────────────────────────────
+
+@router.post("/{trip_id}/bookings/{booking_id}/cancel")
+async def cancel_booking(
+    trip_id: str,
+    booking_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Cancel a specific booking and process refund if applicable."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    booking_result = await db.execute(
+        select(Booking).where(Booking.id == booking_id, Booking.trip_id == trip_id)
+    )
+    booking = booking_result.scalar_one_or_none()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    if booking.status == "cancelled":
+        raise HTTPException(status_code=400, detail="Booking already cancelled")
+
+    # Cancel with provider if booking has a reference
+    refund_amount = 0.0
+    if booking.booking_reference:
+        try:
+            from providers.factory import get_provider
+            provider = get_provider(booking.domain)
+            cancel_result = await provider.cancel(booking.booking_reference)
+
+            # Check cancellation policy for refund amount
+            try:
+                policy = await provider.get_cancellation_policy(booking.booking_reference)
+                refund_amount = policy.refund_amount
+            except Exception:
+                refund_amount = booking.amount  # Default to full refund
+        except Exception as exc:
+            logger.warning("Provider cancel failed for booking %s: %s", booking_id, exc)
+            refund_amount = booking.amount  # Assume full refund on error
+
+    # Process Stripe refund if trip was paid
+    from core.config import settings as app_settings
+    if trip.payment_status == "paid" and refund_amount > 0 and app_settings.stripe_secret_key:
+        try:
+            import stripe
+            stripe.api_key = app_settings.stripe_secret_key
+            from db.models import Payment
+            payment_result = await db.execute(
+                select(Payment).where(
+                    Payment.trip_id == trip_id,
+                    Payment.status == "paid",
+                )
+            )
+            payment = payment_result.scalar_one_or_none()
+            if payment and payment.stripe_payment_intent_id:
+                stripe.Refund.create(
+                    payment_intent=payment.stripe_payment_intent_id,
+                    amount=int(refund_amount * 100),
+                )
+                logger.info("Stripe refund issued for booking %s: $%.2f", booking_id, refund_amount)
+        except Exception as exc:
+            logger.error("Stripe refund failed for booking %s: %s", booking_id, exc)
+
+    booking.status = "cancelled"
+    await db.commit()
+
+    # Send cancellation email
+    try:
+        from core.email import send_cancellation_confirmation
+        if trip.user_id:
+            from db.models import User
+            user_result = await db.execute(select(User).where(User.id == trip.user_id))
+            db_user = user_result.scalar_one_or_none()
+            if db_user:
+                send_cancellation_confirmation(db_user.email, booking, refund_amount)
+    except Exception as exc:
+        logger.warning("Cancellation email failed: %s", exc)
+
+    bus = EventBus.get_or_create(trip_id)
+    await bus.emit({
+        "type": "booking_cancelled",
+        "booking_id": booking_id,
+        "domain": booking.domain,
+        "refund_amount": refund_amount,
+    })
+
+    return {"status": "cancelled", "booking_id": booking_id, "refund_amount": refund_amount}
 
 
 # ── Trip Chat Endpoints ───────────────────────────────────────────────────────

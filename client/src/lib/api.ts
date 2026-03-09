@@ -66,34 +66,109 @@ export interface NearestCityResponse {
   country: string;
 }
 
-/** Result of the auth probe: "ok" = no auth needed, "auth_required" = need JWT, "unavailable" = backend down */
+export interface CheckoutResponse {
+  checkout_url: string;
+  session_id: string;
+}
+
+export interface PaymentStatusResponse {
+  trip_id: string;
+  payment_status: string;
+  stripe_session_id: string | null;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  picture_url: string | null;
+  is_approved: boolean;
+}
+
+export interface AuthMeResponse {
+  user: AuthUser | null;
+  auth_configured: boolean;
+  expired?: boolean;
+}
+
+/** Result of the auth probe: "ok" = no auth needed, "auth_required" = need sign-in, "unavailable" = backend down */
 export type AuthStatus = "ok" | "auth_required" | "unavailable";
 
 class ApiClient {
-  private token: string | null = null;
-
-  setToken(token: string) {
-    this.token = token;
-  }
-
-  clearToken() {
-    this.token = null;
-  }
-
   private headers(): Record<string, string> {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (this.token) {
-      h["Authorization"] = `Bearer ${this.token}`;
-    }
-    return h;
+    return { "Content-Type": "application/json" };
   }
+
+  private fetchOpts(extra?: RequestInit): RequestInit {
+    return { credentials: "include" as RequestCredentials, ...extra };
+  }
+
+  // ── Auth ────────────────────────────────────────────────────────────────
+
+  async getGoogleAuthUrl(): Promise<string> {
+    const res = await fetch("/api/auth/google", this.fetchOpts());
+    if (!res.ok) throw new Error("Failed to get Google auth URL");
+    const data = await res.json();
+    return data.url;
+  }
+
+  async getMe(): Promise<AuthMeResponse> {
+    const res = await fetch("/api/auth/me", this.fetchOpts());
+    if (!res.ok) throw new Error("Failed to get user info");
+    return res.json();
+  }
+
+  async logout(): Promise<void> {
+    await fetch("/api/auth/logout", this.fetchOpts({ method: "POST" }));
+  }
+
+  async joinWaitlist(email: string): Promise<{ status: string }> {
+    const res = await fetch("/api/waitlist", this.fetchOpts({
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ email }),
+    }));
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? "Failed to join waitlist");
+    }
+    return res.json();
+  }
+
+  async validateInviteCode(code: string, userId: string): Promise<void> {
+    const res = await fetch("/api/waitlist/validate-invite", this.fetchOpts({
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ code, user_id: userId }),
+    }));
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? "Invalid invite code");
+    }
+  }
+
+  async checkAuth(): Promise<AuthStatus> {
+    try {
+      const res = await fetch("/api/auth/me", this.fetchOpts());
+      if (res.status >= 502 && res.status <= 504) return "unavailable";
+      if (!res.ok) return "unavailable";
+      const data: AuthMeResponse = await res.json();
+      if (!data.auth_configured) return "ok"; // auth not enabled
+      if (data.user) return "ok";
+      return "auth_required";
+    } catch {
+      return "unavailable";
+    }
+  }
+
+  // ── Trips ───────────────────────────────────────────────────────────────
 
   async parseTripGoal(text: string): Promise<ParseTripResponse> {
-    const res = await fetch("/api/trips/parse", {
+    const res = await fetch("/api/trips/parse", this.fetchOpts({
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({ text }),
-    });
+    }));
     if (!res.ok) {
       if (res.status >= 502 && res.status <= 504) {
         throw new Error("Unable to reach the server. Please try again later.");
@@ -105,11 +180,11 @@ class ApiClient {
   }
 
   async createTrip(options: CreateTripOptions) {
-    const res = await fetch("/api/trips", {
+    const res = await fetch("/api/trips", this.fetchOpts({
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify(options),
-    });
+    }));
     if (!res.ok) {
       if (res.status >= 502 && res.status <= 504) {
         throw new Error("Unable to reach the server. Please try again later.");
@@ -122,7 +197,7 @@ class ApiClient {
 
   async getTrips(archived = false) {
     const url = archived ? "/api/trips?archived=true" : "/api/trips";
-    const res = await fetch(url, { headers: this.headers() });
+    const res = await fetch(url, this.fetchOpts({ headers: this.headers() }));
     if (!res.ok) {
       if (res.status >= 502 && res.status <= 504) {
         throw new Error("Unable to reach the server. Please try again later.");
@@ -134,9 +209,9 @@ class ApiClient {
   }
 
   async getTrip(tripId: string) {
-    const res = await fetch(`/api/trips/${tripId}`, {
+    const res = await fetch(`/api/trips/${tripId}`, this.fetchOpts({
       headers: this.headers(),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Get trip failed: ${res.status}`);
@@ -145,11 +220,11 @@ class ApiClient {
   }
 
   async submitApproval(approvalId: string, approved: boolean) {
-    const res = await fetch(`/api/approvals/${approvalId}`, {
+    const res = await fetch(`/api/approvals/${approvalId}`, this.fetchOpts({
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({ approved }),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Approval failed: ${res.status}`);
@@ -158,11 +233,11 @@ class ApiClient {
   }
 
   async submitClarification(tripId: string, requestId: string, answers: Record<string, string>) {
-    const res = await fetch(`/api/trips/${tripId}/clarify`, {
+    const res = await fetch(`/api/trips/${tripId}/clarify`, this.fetchOpts({
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({ request_id: requestId, answers }),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Clarification failed: ${res.status}`);
@@ -171,10 +246,10 @@ class ApiClient {
   }
 
   async cancelTrip(tripId: string) {
-    const res = await fetch(`/api/trips/${tripId}`, {
+    const res = await fetch(`/api/trips/${tripId}`, this.fetchOpts({
       method: "PATCH",
       headers: this.headers(),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Cancel trip failed: ${res.status}`);
@@ -183,9 +258,9 @@ class ApiClient {
   }
 
   async getTripItinerary(tripId: string) {
-    const res = await fetch(`/api/trips/${tripId}/itinerary`, {
+    const res = await fetch(`/api/trips/${tripId}/itinerary`, this.fetchOpts({
       headers: this.headers(),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Get itinerary failed: ${res.status}`);
@@ -194,11 +269,11 @@ class ApiClient {
   }
 
   async updateItineraryItem(tripId: string, itemId: string, action: string, notes = "") {
-    const res = await fetch(`/api/trips/${tripId}/itinerary/items/${itemId}`, {
+    const res = await fetch(`/api/trips/${tripId}/itinerary/items/${itemId}`, this.fetchOpts({
       method: "PATCH",
       headers: this.headers(),
       body: JSON.stringify({ action, notes }),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Update item failed: ${res.status}`);
@@ -207,9 +282,9 @@ class ApiClient {
   }
 
   async getChatHistory(tripId: string) {
-    const res = await fetch(`/api/trips/${tripId}/chat`, {
+    const res = await fetch(`/api/trips/${tripId}/chat`, this.fetchOpts({
       headers: this.headers(),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Get chat failed: ${res.status}`);
@@ -218,11 +293,11 @@ class ApiClient {
   }
 
   async sendChatMessage(tripId: string, message: string) {
-    const res = await fetch(`/api/trips/${tripId}/chat`, {
+    const res = await fetch(`/api/trips/${tripId}/chat`, this.fetchOpts({
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({ message }),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Send chat failed: ${res.status}`);
@@ -231,10 +306,10 @@ class ApiClient {
   }
 
   async retryTrip(tripId: string) {
-    const res = await fetch(`/api/trips/${tripId}/retry`, {
+    const res = await fetch(`/api/trips/${tripId}/retry`, this.fetchOpts({
       method: "POST",
       headers: this.headers(),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Retry trip failed: ${res.status}`);
@@ -243,10 +318,10 @@ class ApiClient {
   }
 
   async archiveTrip(tripId: string) {
-    const res = await fetch(`/api/trips/${tripId}/archive`, {
+    const res = await fetch(`/api/trips/${tripId}/archive`, this.fetchOpts({
       method: "PATCH",
       headers: this.headers(),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Archive trip failed: ${res.status}`);
@@ -255,10 +330,10 @@ class ApiClient {
   }
 
   async unarchiveTrip(tripId: string) {
-    const res = await fetch(`/api/trips/${tripId}/unarchive`, {
+    const res = await fetch(`/api/trips/${tripId}/unarchive`, this.fetchOpts({
       method: "PATCH",
       headers: this.headers(),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Unarchive trip failed: ${res.status}`);
@@ -270,7 +345,7 @@ class ApiClient {
     const url = orgId
       ? `/api/policies?${new URLSearchParams({ org_id: orgId })}`
       : "/api/policies";
-    const res = await fetch(url, { headers: this.headers() });
+    const res = await fetch(url, this.fetchOpts({ headers: this.headers() }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Get policies failed: ${res.status}`);
@@ -279,11 +354,11 @@ class ApiClient {
   }
 
   async suggestDates(destination: string, durationDays: number): Promise<DateSuggestResponse> {
-    const res = await fetch("/api/trips/parse/suggest-dates", {
+    const res = await fetch("/api/trips/parse/suggest-dates", this.fetchOpts({
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({ destination, duration_days: durationDays }),
-    });
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Suggest dates failed: ${res.status}`);
@@ -291,29 +366,52 @@ class ApiClient {
     return res.json();
   }
 
-  async nearestCity(lat: number, lon: number): Promise<NearestCityResponse> {
-    const res = await fetch(`/api/trips/parse/nearest-city?lat=${lat}&lon=${lon}`, {
+  // ── Payments ─────────────────────────────────────────────────────────────
+
+  async createCheckoutSession(tripId: string): Promise<CheckoutResponse> {
+    const res = await fetch(`/api/trips/${tripId}/checkout`, this.fetchOpts({
+      method: "POST",
       headers: this.headers(),
-    });
+    }));
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Checkout failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async getPaymentStatus(tripId: string): Promise<PaymentStatusResponse> {
+    const res = await fetch(`/api/trips/${tripId}/payment-status`, this.fetchOpts({
+      headers: this.headers(),
+    }));
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Payment status failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async cancelBooking(tripId: string, bookingId: string): Promise<{ status: string }> {
+    const res = await fetch(`/api/trips/${tripId}/bookings/${bookingId}/cancel`, this.fetchOpts({
+      method: "POST",
+      headers: this.headers(),
+    }));
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail ?? `Cancel booking failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async nearestCity(lat: number, lon: number): Promise<NearestCityResponse> {
+    const res = await fetch(`/api/trips/parse/nearest-city?lat=${lat}&lon=${lon}`, this.fetchOpts({
+      headers: this.headers(),
+    }));
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail ?? `Nearest city failed: ${res.status}`);
     }
     return res.json();
-  }
-
-  async checkAuth(): Promise<AuthStatus> {
-    try {
-      const res = await fetch("/api/health");
-      if (res.status === 401) return "auth_required";
-      if (res.ok) return "ok";
-      // 502/503/504 = Next.js proxy couldn't reach backend
-      if (res.status >= 500) return "unavailable";
-      return "ok";
-    } catch {
-      // Network error — backend or proxy completely unreachable
-      return "unavailable";
-    }
   }
 }
 

@@ -18,7 +18,10 @@ from db.models import User
 logger = logging.getLogger(__name__)
 
 # Paths exempt from authentication
-AUTH_EXEMPT_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+AUTH_EXEMPT_PATHS = {
+    "/health", "/docs", "/openapi.json", "/redoc",
+    "/auth/google", "/auth/callback/google", "/auth/me",
+}
 
 
 class CurrentUser:
@@ -31,10 +34,11 @@ class CurrentUser:
 
 def _decode_jwt(token: str) -> dict:
     """Decode and validate a JWT token. Never log the token (INV-12)."""
+    secret = settings.jwt_secret or settings.auth_secret
     try:
         payload = jwt.decode(
             token,
-            settings.auth_secret,
+            secret,
             algorithms=["HS256"],
             options={"verify_exp": True},
         )
@@ -73,7 +77,7 @@ async def get_current_user(
         return CurrentUser(user_id="anonymous", email="", name="Anonymous")
 
     # Skip auth if auth is not configured (dev/test mode)
-    if not settings.auth_secret:
+    if not (settings.jwt_secret or settings.auth_secret):
         return CurrentUser(user_id="anonymous", email="", name="Anonymous")
 
     token = _extract_token(request)
@@ -94,7 +98,7 @@ async def get_current_user(
 
 async def get_optional_user(request: Request) -> Optional[CurrentUser]:
     """Non-strict version: returns None if no auth is configured or no token present."""
-    if not settings.auth_secret:
+    if not (settings.jwt_secret or settings.auth_secret):
         return None
 
     token = _extract_token(request)

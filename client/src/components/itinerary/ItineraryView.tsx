@@ -13,7 +13,7 @@ import LoadingDots from "@/components/ui/LoadingDots";
 import EmptyState from "@/components/ui/EmptyState";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import { Map, FileText, Clock } from "lucide-react";
+import { Map, FileText, Clock, CreditCard } from "lucide-react";
 
 interface ItineraryViewProps {
   tripId: string;
@@ -27,11 +27,17 @@ export default function ItineraryView({ tripId, onBack, embedded }: ItineraryVie
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("itinerary");
+  const [paymentStatus, setPaymentStatus] = useState<string>("unpaid");
+  const [checkingOut, setCheckingOut] = useState(false);
 
   const fetchItinerary = useCallback(async () => {
     try {
-      const data = await apiClient.getTripItinerary(tripId);
+      const [data, trip] = await Promise.all([
+        apiClient.getTripItinerary(tripId),
+        apiClient.getTrip(tripId),
+      ]);
       setItinerary(data);
+      setPaymentStatus(trip.payment_status ?? "unpaid");
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load itinerary");
@@ -49,14 +55,15 @@ export default function ItineraryView({ tripId, onBack, embedded }: ItineraryVie
   }, [fetchItinerary]);
 
   useWebSocket(
-    itinerary?.status === "review" || itinerary?.status === "planning"
+    itinerary?.status === "review" || itinerary?.status === "planning" || itinerary?.status === "booking"
       ? tripId
       : null,
     (event) => {
       if (
         event.type === "approval_decided" ||
         event.type === "trip_completed" ||
-        event.type === "trip_failed"
+        event.type === "trip_failed" ||
+        event.type === "booking_progress"
       ) {
         fetchItinerary();
       }
@@ -99,9 +106,30 @@ export default function ItineraryView({ tripId, onBack, embedded }: ItineraryVie
     }
   };
 
+  const handleCheckout = async () => {
+    setCheckingOut(true);
+    try {
+      const { checkout_url } = await apiClient.createCheckoutSession(tripId);
+      window.location.href = checkout_url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Checkout failed");
+      setCheckingOut(false);
+    }
+  };
+
   const pendingCount = itinerary
     ? itinerary.days.flatMap((d) => d.items).filter((i) => i.status === "awaiting_approval").length
     : 0;
+
+  const totalCost = itinerary
+    ? itinerary.days.flatMap((d) => d.items).reduce((sum, item) => sum + item.cost, 0)
+    : 0;
+
+  const showPayButton =
+    itinerary?.status === "review" &&
+    paymentStatus === "unpaid" &&
+    pendingCount === 0 &&
+    totalCost > 0;
 
   if (loading) {
     return <LoadingDots label="Loading itinerary..." />;
@@ -139,6 +167,60 @@ export default function ItineraryView({ tripId, onBack, embedded }: ItineraryVie
             Approve All ({pendingCount})
           </Button>
         </div>
+      )}
+
+      {/* Pay & Book CTA */}
+      {showPayButton && (
+        <Card className="mb-6 border-gold bg-gold/5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-sans text-sm font-semibold text-navy">Ready to book</p>
+              <p className="font-sans text-xs text-slate mt-0.5">
+                All items approved. Total: ${totalCost.toFixed(2)} + service fee
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleCheckout}
+              disabled={checkingOut}
+              className="flex items-center gap-2 whitespace-nowrap"
+            >
+              <CreditCard className="h-4 w-4" />
+              {checkingOut ? "Redirecting..." : `Pay & Book — $${(totalCost + 9.99).toFixed(2)}`}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Booking in progress banner */}
+      {itinerary.status === "booking" && (
+        <Card className="mb-6 border-blue-200 bg-blue-50">
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div>
+              <p className="font-sans text-sm font-semibold text-blue-700">Booking in progress</p>
+              <p className="font-sans text-xs text-blue-600/70">
+                We&apos;re confirming your reservations with providers...
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Payment pending banner */}
+      {itinerary.status === "payment_pending" && (
+        <Card className="mb-6 border-gold bg-gold/5">
+          <div className="flex items-center gap-3">
+            <CreditCard className="h-5 w-5 text-gold" />
+            <div>
+              <p className="font-sans text-sm font-semibold text-navy">Awaiting payment</p>
+              <p className="font-sans text-xs text-slate">
+                Complete your payment to proceed with booking.
+              </p>
+            </div>
+          </div>
+        </Card>
       )}
 
       <div className={`grid grid-cols-1 ${embedded ? "gap-4" : "lg:grid-cols-[1fr_380px] gap-6"}`}>

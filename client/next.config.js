@@ -128,7 +128,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob:",
-              "connect-src 'self' ws://localhost:* wss://localhost:*",
+              "connect-src 'self' ws://localhost:* wss://localhost:* https://checkout.stripe.com",
               "frame-ancestors 'none'",
             ].join("; "),
           },
