@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.routes import approvals, parse, policies, push, streaming, trips
+from api.routes import approvals, auth, parse, payments, policies, push, streaming, trips, waitlist
 from core.config import settings
 from db.database import init_db
 
@@ -15,9 +15,13 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Travel & Logistics Agentic Platform", version="0.7.0")
 
 # ── CORS — restrict to specific origins, methods, and headers ────────────────
+_cors_origins = ["http://localhost:3000"]
+if settings.frontend_url and settings.frontend_url not in _cors_origins:
+    _cors_origins.append(settings.frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
@@ -34,7 +38,7 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)"
-    if settings.auth_secret:
+    if settings.jwt_secret or settings.auth_secret:
         # Only add HSTS when auth is configured (implies production-like environment)
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
@@ -85,16 +89,23 @@ async def vapid_key():
     return {"vapid_public_key": settings.vapid_public_key or ""}
 
 
-# M6: Auth middleware — only active when AUTH_SECRET is configured
+# M6: Auth middleware — only active when jwt_secret (or legacy auth_secret) is configured
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     """Reject unauthenticated requests when auth is configured (INV-12)."""
+    secret = settings.jwt_secret or settings.auth_secret
+
     # Skip auth if not configured (dev/test mode)
-    if not settings.auth_secret:
+    if not secret:
         return await call_next(request)
 
     # Exempt paths
-    exempt = {"/health", "/docs", "/openapi.json", "/redoc", "/push/vapid-key"}
+    exempt = {
+        "/health", "/docs", "/openapi.json", "/redoc", "/push/vapid-key",
+        "/auth/google", "/auth/callback/google", "/auth/me", "/auth/logout",
+        "/waitlist", "/waitlist/validate-invite",
+        "/webhooks/stripe",
+    }
     if request.url.path in exempt:
         return await call_next(request)
 
@@ -112,8 +123,8 @@ async def auth_middleware(request: Request, call_next):
     token = auth_header[7:] if auth_header.startswith("Bearer ") else cookie_token
 
     try:
-        import jwt
-        payload = jwt.decode(token, settings.auth_secret, algorithms=["HS256"])
+        import jwt as pyjwt
+        payload = pyjwt.decode(token, secret, algorithms=["HS256"])
         # Inject user info into request state (never log the token — INV-12)
         request.state.user_id = payload.get("sub", "")
         request.state.user_email = payload.get("email", "")
@@ -124,10 +135,13 @@ async def auth_middleware(request: Request, call_next):
     return await call_next(request)
 
 
+app.include_router(auth.router)
+app.include_router(waitlist.router)
 app.include_router(trips.router)
 app.include_router(parse.router)
 app.include_router(approvals.router)
 app.include_router(policies.router)
+app.include_router(payments.router)
 app.include_router(streaming.router)
 app.include_router(push.router)
 
@@ -135,8 +149,8 @@ app.include_router(push.router)
 @app.on_event("startup")
 async def on_startup():
     await init_db()
-    if not settings.auth_secret:
+    if not (settings.jwt_secret or settings.auth_secret):
         logger.warning(
-            "AUTH_SECRET is not configured — authentication is DISABLED. "
-            "Set AUTH_SECRET in .env to enable JWT authentication."
+            "JWT_SECRET (or AUTH_SECRET) is not configured — authentication is DISABLED. "
+            "Set JWT_SECRET in .env to enable authentication."
         )

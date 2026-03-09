@@ -20,7 +20,7 @@ cp .env.example .env
 
 # 3. Start the backend
 pip install -r requirements.txt
-USE_REAL_APIS=false python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+USE_REAL_APIS=true python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
 
 # 4. Start the frontend (in a second terminal)
 cd client

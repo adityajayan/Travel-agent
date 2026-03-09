@@ -8,6 +8,8 @@ Verifies that:
   - Edge cases (minimal input, ambiguous input) are handled gracefully
   - The heuristic fallback triggers when Claude returns invalid JSON
 """
+from __future__ import annotations
+
 import json
 from datetime import date
 from unittest.mock import MagicMock, patch

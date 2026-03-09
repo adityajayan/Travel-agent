@@ -130,6 +130,7 @@ async def test_non_terminal_not_archivable(db):
 # ── VALID_TRANSITIONS completeness ───────────────────────────────────────────
 
 def test_all_statuses_have_transitions():
-    all_statuses = {TripStatus.PLANNING, TripStatus.REVIEW, TripStatus.COMPLETE,
+    all_statuses = {TripStatus.PLANNING, TripStatus.REVIEW, TripStatus.PAYMENT_PENDING,
+                    TripStatus.BOOKING, TripStatus.COMPLETE,
                     TripStatus.CANCELLED, TripStatus.FAILED}
     assert set(VALID_TRANSITIONS.keys()) == all_statuses

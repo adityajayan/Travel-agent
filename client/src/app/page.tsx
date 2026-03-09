@@ -11,8 +11,8 @@ import BottomNav from "@/components/BottomNav";
 import InstallPrompt from "@/components/InstallPrompt";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { apiClient, AuthStatus, CreateTripOptions } from "@/lib/api";
-import { useAuth, LoginForm } from "@/components/AuthGate";
+import { apiClient, CreateTripOptions } from "@/lib/api";
+import { useAuth, LoginForm, InviteCodeForm } from "@/components/AuthGate";
 import { useToast } from "@/components/Toast";
 import StatusBadge from "@/components/ui/StatusBadge";
 import Button from "@/components/ui/Button";
@@ -57,7 +57,6 @@ export default function Home() {
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
   const [events, setEvents] = useState<TripEvent[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [view, setView] = useState<View>("timeline");
   const [mobileTab, setMobileTab] = useState<MobileTab>("plan");
   const [tripView, setTripView] = useState<TripView>("list");
@@ -65,15 +64,9 @@ export default function Home() {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
 
-  const { isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, status: authStatus, logout, retryConnection, refreshUser } = useAuth();
   const { toast } = useToast();
   const { supported: pushSupported, subscribed: pushSubscribed, subscribe: pushSubscribe } = usePushNotifications();
-
-  useEffect(() => {
-    apiClient.checkAuth().then((status) => {
-      setAuthStatus(status);
-    });
-  }, [isAuthenticated]);
 
   useEffect(() => {
     if (pushSupported && !pushSubscribed) {
@@ -257,7 +250,7 @@ export default function Home() {
     }
   }, [view, mobileTab, tripView]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (authStatus === "auth_required" && !isAuthenticated) {
+  if (authStatus === "auth_required") {
     return (
       <main className="max-w-4xl mx-auto px-4 py-8 safe-area-x">
         <header className="mb-8">
@@ -270,6 +263,31 @@ export default function Home() {
           <p className="text-slate mt-3 font-sans text-sm">Tell us what you want. We&apos;ll handle everything.</p>
         </header>
         <LoginForm />
+      </main>
+    );
+  }
+
+  // User signed in but not yet approved — show invite code form
+  if (user && !user.is_approved) {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-8 safe-area-x">
+        <header className="mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-navy rounded-lg flex items-center justify-center">
+                <span className="font-serif text-white text-lg font-medium">C</span>
+              </div>
+              <span className="font-sans text-lg font-semibold text-navy">Concierge</span>
+            </div>
+            <button
+              onClick={logout}
+              className="font-sans text-xs font-medium text-slate border border-gold-light/40 px-3 py-2 rounded-md btn-transition"
+            >
+              Sign Out
+            </button>
+          </div>
+        </header>
+        <InviteCodeForm userId={user.id} onApproved={refreshUser} />
       </main>
     );
   }
@@ -296,7 +314,7 @@ export default function Home() {
 pip install -r requirements.txt
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`}
           </pre>
-          <Button variant="primary" size="md" onClick={() => apiClient.checkAuth().then(setAuthStatus)}>
+          <Button variant="primary" size="md" onClick={retryConnection}>
             Retry Connection
           </Button>
         </div>

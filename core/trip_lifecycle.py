@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 class TripStatus:
     PLANNING = "planning"
     REVIEW = "review"
+    PAYMENT_PENDING = "payment_pending"
+    BOOKING = "booking"
     COMPLETE = "complete"
     CANCELLED = "cancelled"
     FAILED = "failed"
@@ -22,7 +24,9 @@ class TripStatus:
 
 VALID_TRANSITIONS: dict[str, set[str]] = {
     TripStatus.PLANNING: {TripStatus.REVIEW, TripStatus.FAILED, TripStatus.CANCELLED},
-    TripStatus.REVIEW: {TripStatus.COMPLETE, TripStatus.PLANNING, TripStatus.FAILED, TripStatus.CANCELLED},
+    TripStatus.REVIEW: {TripStatus.PAYMENT_PENDING, TripStatus.COMPLETE, TripStatus.PLANNING, TripStatus.FAILED, TripStatus.CANCELLED},
+    TripStatus.PAYMENT_PENDING: {TripStatus.BOOKING, TripStatus.CANCELLED, TripStatus.FAILED},
+    TripStatus.BOOKING: {TripStatus.COMPLETE, TripStatus.FAILED},
     TripStatus.COMPLETE: {TripStatus.CANCELLED},
     TripStatus.CANCELLED: set(),
     TripStatus.FAILED: {TripStatus.PLANNING},

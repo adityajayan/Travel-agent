@@ -41,6 +41,7 @@ class TripRead(BaseModel):
     created_at: Optional[datetime] = None
     summary_text: Optional[str] = None
     is_archived: bool = False
+    payment_status: str = "unpaid"
     bookings: List[BookingOut] = []
 
     model_config = {"from_attributes": True}

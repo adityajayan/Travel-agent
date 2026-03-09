@@ -6,6 +6,8 @@ export const STATUS_CONFIG: Record<string, { label: string; className: string }>
   review: { label: "In Review", className: "border-gold text-gold" },
   complete: { label: "Complete", className: "border-success-border text-success" },
   completed: { label: "Complete", className: "border-success-border text-success" },
+  payment_pending: { label: "Awaiting Payment", className: "border-gold text-gold" },
+  booking: { label: "Booking", className: "border-blue-200 text-blue-600" },
   failed: { label: "Failed", className: "border-error text-error" },
   cancelled: { label: "Cancelled", className: "border-gold-light text-slate" },
   // Item-level statuses

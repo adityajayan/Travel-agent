@@ -17,7 +17,10 @@ class User(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
-    auth_provider_id = Column(String, nullable=False)  # external ID from Supabase/Auth0
+    auth_provider_id = Column(String, nullable=False)  # external ID (Google sub, etc.)
+    auth_provider = Column(String, nullable=False, default="google")
+    picture_url = Column(String, nullable=True)
+    is_approved = Column(Boolean, default=False, server_default="0", nullable=False)
     preferences_json = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -39,11 +42,14 @@ class Trip(Base):
     org_id = Column(String, nullable=True)
     policy_id = Column(String, ForeignKey("corporate_policies.id"), nullable=True)
     summary_text = Column(String, nullable=True)
+    # unpaid | pending | paid | refunded
+    payment_status = Column(String, default="unpaid", server_default="unpaid", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     user = relationship("User", back_populates="trips", lazy="select")
     bookings = relationship("Booking", back_populates="trip", lazy="select")
+    payments = relationship("Payment", back_populates="trip", lazy="select")
     tool_calls = relationship("ToolCall", back_populates="trip", lazy="select")
     approvals = relationship("HumanApproval", back_populates="trip", lazy="select")
     policy_violations = relationship("PolicyViolation", back_populates="trip", lazy="select")
@@ -59,6 +65,9 @@ class Booking(Base):
     provider = Column(String, nullable=False)
     details = Column(JSON, nullable=False)
     amount = Column(Float, default=0.0, nullable=False)
+    # confirmed | cancelled | refunded
+    status = Column(String, default="confirmed", server_default="confirmed", nullable=False)
+    booking_reference = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     trip = relationship("Trip", back_populates="bookings")
@@ -172,8 +181,40 @@ class TripChatMessage(Base):
     trip = relationship("Trip", backref="chat_messages")
 
 
+# ── Payments ──────────────────────────────────────────────────────────────────
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    trip_id = Column(String, ForeignKey("trips.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    stripe_checkout_session_id = Column(String, nullable=True)
+    stripe_payment_intent_id = Column(String, nullable=True)
+    amount_cents = Column(Float, nullable=False)
+    currency = Column(String, default="usd", nullable=False)
+    # pending | paid | refunded | failed
+    status = Column(String, default="pending", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+
+    trip = relationship("Trip", back_populates="payments")
+
+
+# ── Waitlist ───────────────────────────────────────────────────────────────────
+
+class WaitlistEntry(Base):
+    __tablename__ = "waitlist_entries"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 # Indices for common query patterns
 Index("ix_policies_org_active", CorporatePolicy.org_id, CorporatePolicy.is_active)
 Index("ix_violations_trip", PolicyViolation.trip_id)
 Index("ix_chat_messages_trip", TripChatMessage.trip_id)
 Index("ix_trips_archived", Trip.is_archived)
+Index("ix_payments_trip", Payment.trip_id)
+Index("ix_payments_stripe_session", Payment.stripe_checkout_session_id)
